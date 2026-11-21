@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -208,9 +209,10 @@ fun PasswordDialog(title: String, message: String, confirm: Boolean, onDismiss: 
 fun DocPickerDialog(title: String, vm: LibraryViewModel, multi: Boolean, confirmLabel: String, onDismiss: () -> Unit, onConfirm: (List<DocumentEntity>) -> Unit) {
     val docs by vm.documents.collectAsState()
     val selected = remember { mutableStateListOf<Long>() }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
+            // Marges des barres système : le bouton de validation reste au-dessus de la barre de navigation
+            Column(Modifier.fillMaxSize().systemBarsPadding().padding(top = 8.dp)) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Fermer") }
                     Column(Modifier.weight(1f)) {
