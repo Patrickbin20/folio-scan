@@ -44,6 +44,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.LibraryAdd
+import com.docuscanpro.app.ui.tools.ChoiceDialog
 import androidx.compose.material.icons.outlined.OpenWith
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.RotateLeft
@@ -113,15 +115,18 @@ import kotlin.math.roundToInt
 
 enum class EditTool { MOVE, PEN, HIGHLIGHT }
 
-data class EditItem(val id: Long, val page: Int, val bitmap: Bitmap, val cx: Float, val cy: Float, val w: Float, val rot: Float)
+/** [link] : éléments liés (signature collective) — ils bougent et se suppriment ensemble. */
+data class EditItem(val id: Long, val page: Int, val bitmap: Bitmap, val cx: Float, val cy: Float, val w: Float, val rot: Float, val link: Long? = null)
 data class PageStroke(val id: Long, val page: Int, val stroke: InkStroke)
 
 /** État de l'éditeur conservé pendant la navigation (ex. création d'une signature). */
 class EditState : ViewModel() {
     val items = mutableStateListOf<EditItem>()
     val strokes = mutableStateListOf<PageStroke>()
-    val history = mutableListOf<Long>()
+    /** Actions d'annulation, de la plus ancienne à la plus récente. */
+    val history = mutableListOf<() -> Unit>()
     var page by mutableIntStateOf(0)
+    var pageCount by mutableIntStateOf(0)
     var selected by mutableStateOf<Long?>(null)
     var tool by mutableStateOf(EditTool.MOVE)
     var preview by mutableStateOf(false)
@@ -132,14 +137,50 @@ class EditState : ViewModel() {
 
     fun add(bmp: Bitmap, w: Float, cy: Float = 0.5f) {
         val it = EditItem(newId(), page, bmp, 0.5f, cy, w, 0f)
-        items.add(it); history.add(it.id); selected = it.id; tool = EditTool.MOVE
+        items.add(it); selected = it.id; tool = EditTool.MOVE
+        history.add { items.removeAll { x -> x.id == it.id }; if (selected == it.id) selected = null }
     }
+
+    /** Modifie un élément ; s'il est lié, tous les éléments liés reçoivent la même modification. */
     fun update(id: Long, f: (EditItem) -> EditItem) {
-        val i = items.indexOfFirst { it.id == id }
-        if (i >= 0) items[i] = f(items[i])
+        val target = items.firstOrNull { it.id == id } ?: return
+        for (i in items.indices) {
+            val x = items[i]
+            if (x.id == id || (target.link != null && x.link == target.link)) items[i] = f(x)
+        }
     }
-    fun remove(id: Long) { items.removeAll { it.id == id }; strokes.removeAll { it.id == id }; history.remove(id); if (selected == id) selected = null }
-    fun undo() { history.removeLastOrNull()?.let { remove(it) } }
+
+    fun linkCount(id: Long): Int {
+        val t = items.firstOrNull { it.id == id } ?: return 0
+        return if (t.link == null) 1 else items.count { it.link == t.link }
+    }
+
+    /** Signature collective : copie l'élément à la même position sur les pages choisies. */
+    fun applyToPages(id: Long, pages: List<Int>) {
+        val i = items.indexOfFirst { it.id == id }
+        if (i < 0) return
+        val wasLinked = items[i].link != null
+        val link = items[i].link ?: newId()
+        items[i] = items[i].copy(link = link)
+        val base = items[i]
+        val existing = items.filter { it.link == link }.map { it.page }.toSet()
+        val copies = pages.filter { it != base.page && it !in existing }.map { p -> base.copy(id = newId(), page = p) }
+        items.addAll(copies)
+        val ids = copies.map { it.id }.toSet()
+        history.add {
+            items.removeAll { it.id in ids }
+            if (!wasLinked) { val j = items.indexOfFirst { it.id == base.id }; if (j >= 0) items[j] = items[j].copy(link = null) }
+        }
+    }
+
+    fun remove(id: Long) {
+        val t = items.firstOrNull { it.id == id }
+        val removed = if (t?.link != null) items.filter { it.link == t.link } else items.filter { it.id == id }
+        items.removeAll { r -> removed.any { it.id == r.id } }
+        if (selected == id) selected = null
+        if (removed.isNotEmpty()) history.add { items.addAll(removed) }
+    }
+    fun undo() { history.removeLastOrNull()?.invoke(); if (items.none { it.id == selected }) selected = null }
     val hasChanges get() = items.isNotEmpty() || strokes.isNotEmpty()
 
     fun edits(): Map<Int, PageEdits> {
@@ -190,6 +231,16 @@ fun PdfEditScreen(id: Long, mode: String, vm: LibraryViewModel, onBack: () -> Un
                 Column(Modifier.navigationBarsPadding().padding(vertical = 8.dp)) {
                     val sel = st.items.firstOrNull { it.id == st.selected }
                     if (sel != null && !st.preview) {
+                        val linked = st.linkCount(sel.id)
+                        if (st.pageCount > 1) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (linked > 1) "Présent sur $linked pages — déplacé ensemble" else "Sur cette page uniquement",
+                                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { dialog = "allpages" }) {
+                                    Icon(Icons.Outlined.LibraryAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Toutes les pages")
+                                }
+                            }
+                        }
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                             SmallAction(Icons.Outlined.Remove, "Réduire") { st.update(sel.id) { it.copy(w = (it.w / 1.12f).coerceAtLeast(0.03f)) } }
                             SmallAction(Icons.Outlined.Add, "Agrandir") { st.update(sel.id) { it.copy(w = (it.w * 1.12f).coerceAtMost(1f)) } }
@@ -221,7 +272,7 @@ fun PdfEditScreen(id: Long, mode: String, vm: LibraryViewModel, onBack: () -> Un
                         item { ToolButton(Icons.Outlined.TextFields, "Texte", false) { dialog = "text" } }
                         item { ToolButton(Icons.Outlined.Edit, "Stylo", st.tool == EditTool.PEN) { st.tool = EditTool.PEN; st.selected = null } }
                         item { ToolButton(Icons.Outlined.BorderColor, "Surligner", st.tool == EditTool.HIGHLIGHT) { st.tool = EditTool.HIGHLIGHT; st.selected = null } }
-                        item { ToolButton(Icons.AutoMirrored.Outlined.Undo, "Annuler", false, enabled = st.history.isNotEmpty() || st.hasChanges) { st.undo() } }
+                        item { ToolButton(Icons.AutoMirrored.Outlined.Undo, "Annuler", false, enabled = st.hasChanges) { st.undo() } }
                     }
                 }
             }
@@ -230,6 +281,7 @@ fun PdfEditScreen(id: Long, mode: String, vm: LibraryViewModel, onBack: () -> Un
         Column(Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surfaceContainer)) {
             val s = session
             val count = s?.pageCount ?: 0
+            st.pageCount = count
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { st.page--; st.selected = null }, enabled = st.page > 0) { Icon(Icons.Outlined.ChevronLeft, "Page précédente") }
                 Text(if (count > 0) "Page ${st.page + 1} / $count" else "", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -246,6 +298,27 @@ fun PdfEditScreen(id: Long, mode: String, vm: LibraryViewModel, onBack: () -> Un
     }
 
     when (dialog) {
+        "allpages" -> {
+            val sel = st.items.firstOrNull { it.id == st.selected }
+            val n = st.pageCount
+            if (sel == null || n < 2) dialog = null
+            else ChoiceDialog(
+                "Placer sur plusieurs pages",
+                listOf("Toutes les pages ($n)", "Toutes sauf la première", "Toutes sauf la dernière", "Pages impaires (1, 3, 5…)", "Pages paires (2, 4, 6…)"),
+                { dialog = null }
+            ) { choice ->
+                dialog = null
+                val pages = when (choice) {
+                    0 -> (0 until n).toList()
+                    1 -> (1 until n).toList()
+                    2 -> (0 until n - 1).toList()
+                    3 -> (0 until n step 2).toList()
+                    else -> (1 until n step 2).toList()
+                }
+                st.applyToPages(sel.id, pages)
+                vm.toast("Placé sur ${st.linkCount(sel.id)} pages, à la même position")
+            }
+        }
         "exit" -> ConfirmDialog("Quitter sans enregistrer ?", "Les modifications seront perdues.", "Quitter", { dialog = null }) { dialog = null; onBack() }
         "initials" -> {
             val initials = settings.userName.split(" ").filter { it.isNotBlank() }.joinToString("") { "${it.first().uppercaseChar()}." }
@@ -356,7 +429,7 @@ private fun EditablePage(session: PdfSession, st: EditState) {
                             val hl = st.tool == EditTool.HIGHLIGHT
                             if (current.size >= 4) {
                                 val s = PageStroke(st.newId(), page, InkStroke(current.toList(), (if (hl) st.hlColor else st.penColor).toArgb(), if (hl) 0.025f else 0.004f, hl))
-                                st.strokes.add(s); st.history.add(s.id)
+                                st.strokes.add(s); st.history.add { st.strokes.removeAll { it.id == s.id } }
                             }
                             current.clear()
                         },
