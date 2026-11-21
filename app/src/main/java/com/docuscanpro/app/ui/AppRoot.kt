@@ -79,15 +79,13 @@ import androidx.compose.ui.window.DialogProperties
 import com.docuscanpro.app.ui.home.HomeScreen
 import com.docuscanpro.app.ui.profile.ProfileScreen
 import com.docuscanpro.app.ui.scan.EditorScreen
+import com.docuscanpro.app.ui.scan.ScannerScreen
 import com.docuscanpro.app.ui.state.LibraryViewModel
 import com.docuscanpro.app.ui.state.ScanViewModel
 import com.docuscanpro.app.ui.theme.Electric
 import com.docuscanpro.app.ui.theme.Navy
 import com.docuscanpro.app.ui.tools.ToolsScreen
 import com.docuscanpro.app.ui.viewer.ViewerScreen
-import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 
 object Routes {
     const val HOME = "home"
@@ -101,6 +99,8 @@ object Routes {
     const val TEXT = "text/{id}"
     const val SIGNATURES = "signatures"
     const val WEB = "web"
+    const val SCANNER = "scanner?mode={mode}"
+    fun scanner(mode: String) = "scanner?mode=$mode"
     fun edit(id: Long, mode: String) = "edit/$id?mode=$mode"
     fun pages(id: Long) = "pages/$id"
     fun text(id: Long) = "text/$id"
@@ -122,17 +122,6 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
     var protectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val busy by vm.busy.collectAsState()
 
-    // --- Scanner ML Kit (bords, recadrage, perspective, capture auto/manuelle, multi-pages) ---
-    val scanLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
-        if (res.resultCode == Activity.RESULT_OK) {
-            val result = GmsDocumentScanningResult.fromActivityResultIntent(res.data)
-            val uris = result?.pages?.map { it.imageUri }.orEmpty()
-            if (uris.isNotEmpty()) {
-                if (currentRoute == Routes.EDITOR) scanVm.addPages(uris)
-                else { scanVm.start(uris, scanMode); nav.navigate(Routes.EDITOR) }
-            }
-        }
-    }
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { uris ->
         if (uris.isNotEmpty()) {
             if (currentRoute == Routes.EDITOR) scanVm.addPages(uris)
@@ -144,21 +133,9 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
     }
 
     val actions = remember {
-        fun launchScanner(mode: String, limit: Int) {
-            scanMode = mode
-            val options = GmsDocumentScannerOptions.Builder()
-                .setGalleryImportAllowed(true)
-                .setPageLimit(limit)
-                .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
-                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
-                .build()
-            GmsDocumentScanning.getClient(options).getStartScanIntent(activity)
-                .addOnSuccessListener { scanLauncher.launch(IntentSenderRequest.Builder(it).build()) }
-                .addOnFailureListener { vm.toast("Scanner indisponible : vérifiez les services Google Play (${it.localizedMessage ?: "erreur"})") }
-        }
         AppActions(
-            scan = { launchScanner("scan", 50) },
-            scanIdCard = { vm.toast("Scannez le recto puis le verso de la carte"); launchScanner("idcard", 2) },
+            scan = { nav.navigate(Routes.scanner("scan")) },
+            scanIdCard = { nav.navigate(Routes.scanner("idcard")) },
             importImages = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             importPdf = { pdfLauncher.launch(arrayOf("application/pdf")) }
         )
@@ -228,6 +205,11 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
                 }
                 composable(Routes.SIGNATURES) { SignatureScreen(vm, onBack = { nav.popBackStack() }) }
                 composable(Routes.WEB) { WebToPdfScreen(onBack = { nav.popBackStack() }) }
+                composable(Routes.SCANNER, arguments = listOf(navArgument("mode") { type = NavType.StringType; defaultValue = "scan" })) { entry ->
+                    ScannerScreen(scanVm, vm, entry.arguments?.getString("mode") ?: "scan",
+                        onClose = { nav.popBackStack() },
+                        onDone = { nav.navigate(Routes.EDITOR) { popUpTo(Routes.SCANNER) { inclusive = true } } })
+                }
                 composable(Routes.PROFILE) { ProfileScreen(vm) }
                 composable(Routes.EDITOR) {
                     EditorScreen(

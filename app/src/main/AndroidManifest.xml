@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Caméra : gérée par le scanner ML Kit (services Google Play), aucune permission caméra requise.
+    <!-- Caméra : demandée uniquement à l'ouverture du scanner.
          Import/export : sélecteur système (Storage Access Framework).
          Internet : uniquement pour l'outil « Page web en PDF » — aucun document n'est envoyé. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".DocuScanApp"

@@ -45,7 +45,9 @@ data class ScanUiState(
     val folderId: Long? = null,
     val source: String = "scan",
     val saving: Boolean = false,
-    val progress: Float = 0f
+    val progress: Float = 0f,
+    /** Ouvre directement le recadrage à l'arrivée dans l'éditeur (scan d'une page) */
+    val openCrop: Boolean = false
 )
 
 /** Session d'édition des pages scannées / importées avant enregistrement en PDF. */
@@ -73,6 +75,16 @@ class ScanViewModel(private val context: Context, private val c: AppContainer) :
             source = source
         )
     }
+
+    /** Démarre avec des pages déjà recadrées automatiquement par le scanner. */
+    fun startScanned(pages: List<Pair<Uri, FloatArray?>>, source: String, openCrop: Boolean) {
+        synchronized(previewCache) { previewCache.clear() }
+        _state.value = ScanUiState(
+            pages = pages.map { (u, q) -> ScanPage(ids.getAndIncrement(), u, filter = ScanFilter.ENHANCED, crop = q) },
+            name = defaultName(source), source = source, openCrop = openCrop
+        )
+    }
+    fun consumeOpenCrop() = _state.update { it.copy(openCrop = false) }
 
     fun addPages(uris: List<Uri>) = _state.update { s ->
         s.copy(pages = s.pages + uris.map { ScanPage(ids.getAndIncrement(), it) }, selected = s.pages.size)

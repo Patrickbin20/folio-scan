@@ -92,6 +92,7 @@ fun EditorScreen(scanVm: ScanViewModel, vm: LibraryViewModel, onClose: () -> Uni
     var confirmExit by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
     var cropping by remember { mutableStateOf(false) }
+    LaunchedEffect(state.openCrop) { if (state.openCrop) { cropping = true; scanVm.consumeOpenCrop() } }
 
     LaunchedEffect(state.pages.isEmpty(), state.saving) { if (state.pages.isEmpty() && !state.saving) onClose() }
     BackHandler(enabled = !state.saving) { confirmExit = true }

@@ -148,7 +148,7 @@ fun ProfileScreen(vm: LibraryViewModel) {
         item {
             Section(Icons.Outlined.Info, "À propos") {
                 Text("DocuScan Pro — version $version", style = MaterialTheme.typography.bodyMedium)
-                Text("Numérisation : Google ML Kit Document Scanner (traitement sur l'appareil)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Scanner et détection des bords intégrés · OCR Google ML Kit (sur l'appareil)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

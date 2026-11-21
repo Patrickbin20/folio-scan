@@ -11,7 +11,150 @@ import kotlin.math.roundToInt
  */
 object DocDetector {
 
-    fun detect(src: Bitmap): FloatArray? {
+    /** Détection combinée : bords rectilignes (Hough) d'abord, zone claire en secours. */
+    fun detect(src: Bitmap): FloatArray? = runCatching { detectLines(src) }.getOrNull() ?: detectRegion(src)
+
+    private class Line(val theta: Double, val rho: Double)
+
+    /**
+     * Méthode principale, robuste même sur fond clair : carte de « blancheur » (luminance − chroma),
+     * gradients, transformée de Hough, puis choix du quadrilatère dont les 4 côtés ont le meilleur
+     * contraste intérieur/extérieur et le plus fort appui sur les bords.
+     */
+    fun detectLines(src: Bitmap): FloatArray? {
+        val scale = 400f / max(src.width, src.height)
+        val w = max(16, (src.width * scale).roundToInt())
+        val h = max(16, (src.height * scale).roundToInt())
+        val small = Bitmap.createScaledBitmap(src, w, h, true)
+        val px = IntArray(w * h)
+        small.getPixels(px, 0, w, 0, 0, w, h)
+        if (small != src) small.recycle()
+
+        var s = FloatArray(w * h) { i ->
+            val c = px[i]
+            val r = (c shr 16 and 255).toFloat(); val g = (c shr 8 and 255).toFloat(); val b = (c and 255).toFloat()
+            val l = r * 0.3f + g * 0.59f + b * 0.11f
+            l - 1.5f * (maxOf(r, g, b) - minOf(r, g, b))
+        }
+        repeat(3) {
+            val o = FloatArray(w * h)
+            for (y in 0 until h) for (x in 0 until w) {
+                var acc = 0f
+                for (dy in -1..1) for (dx in -1..1) {
+                    val xx = (x + dx).coerceIn(0, w - 1); val yy = (y + dy).coerceIn(0, h - 1)
+                    acc += s[yy * w + xx]
+                }
+                o[y * w + x] = acc / 9f
+            }
+            s = o
+        }
+        val mag = FloatArray(w * h)
+        for (y in 0 until h) for (x in 0 until w) {
+            val gx = s[y * w + (x + 1).coerceAtMost(w - 1)] - s[y * w + (x - 1).coerceAtLeast(0)]
+            val gy = s[(y + 1).coerceAtMost(h - 1) * w + x] - s[(y - 1).coerceAtLeast(0) * w + x]
+            mag[y * w + x] = kotlin.math.sqrt(gx * gx + gy * gy)
+        }
+        val sorted = mag.copyOf().also { it.sort() }
+        val thr = sorted[(sorted.size * 0.90).toInt().coerceAtMost(sorted.size - 1)]
+        if (thr <= 0f) return null
+
+        // Transformée de Hough pondérée
+        val nT = 180
+        val diag = kotlin.math.hypot(w.toDouble(), h.toDouble()).toInt() + 1
+        val acc = Array(nT) { FloatArray(2 * diag + 1) }
+        val cosT = DoubleArray(nT) { kotlin.math.cos(Math.toRadians(it.toDouble())) }
+        val sinT = DoubleArray(nT) { kotlin.math.sin(Math.toRadians(it.toDouble())) }
+        for (y in 0 until h) for (x in 0 until w) {
+            val m = mag[y * w + x]
+            if (m <= thr) continue
+            for (t in 0 until nT) {
+                val r = (x * cosT[t] + y * sinT[t]).roundToInt() + diag
+                acc[t][r] += m
+            }
+        }
+        fun peaks(accept: (Int) -> Boolean, k: Int = 8): List<Line> {
+            val a = Array(nT) { t -> if (accept(t)) acc[t].copyOf() else FloatArray(2 * diag + 1) }
+            val out = mutableListOf<Line>()
+            repeat(k) {
+                var bt = -1; var br = -1; var bv = 0f
+                for (t in 0 until nT) for (r in a[t].indices) if (a[t][r] > bv) { bv = a[t][r]; bt = t; br = r }
+                if (bt < 0) return out
+                out += Line(Math.toRadians(bt.toDouble()), (br - diag).toDouble())
+                for (t in (bt - 6)..(bt + 6)) {
+                    val tt = ((t % nT) + nT) % nT
+                    for (r in (br - 8)..(br + 8)) if (r in a[tt].indices) a[tt][r] = 0f
+                }
+            }
+            return out
+        }
+        val horiz = peaks({ it in 56..124 })
+        val vert = peaks({ it < 35 || it > 145 })
+        if (horiz.size < 2 || vert.size < 2) return null
+
+        fun inter(a: Line, b: Line): DoubleArray? {
+            val a1 = kotlin.math.cos(a.theta); val b1 = kotlin.math.sin(a.theta)
+            val a2 = kotlin.math.cos(b.theta); val b2 = kotlin.math.sin(b.theta)
+            val det = a1 * b2 - a2 * b1
+            if (kotlin.math.abs(det) < 1e-6) return null
+            return doubleArrayOf((a.rho * b2 - b.rho * b1) / det, (a1 * b.rho - a2 * a.rho) / det)
+        }
+        fun at(x: Int, y: Int, arr: FloatArray) = arr[y.coerceIn(0, h - 1) * w + x.coerceIn(0, w - 1)]
+        fun side(pa: DoubleArray, pb: DoubleArray, cx: Double, cy: Double): Double {
+            val n = 24
+            val dx = pb[0] - pa[0]; val dy = pb[1] - pa[1]
+            val ln = kotlin.math.hypot(dx, dy).takeIf { it > 0 } ?: return -1e9
+            var nx = -dy / ln; var ny = dx / ln
+            if ((cx - pa[0]) * nx + (cy - pa[1]) * ny < 0) { nx = -nx; ny = -ny }
+            var tot = 0.0; var cnt = 0; var edge = 0.0
+            for (k in 1 until n) {
+                val t = k.toDouble() / n
+                val x = pa[0] + dx * t; val y = pa[1] + dy * t
+                val xi = (x + nx * 4).toInt(); val yi = (y + ny * 4).toInt()
+                val xo = (x - nx * 4).toInt(); val yo = (y - ny * 4).toInt()
+                if (xi in 0 until w && yi in 0 until h && xo in 0 until w && yo in 0 until h) {
+                    tot += s[yi * w + xi] - s[yo * w + xo]; cnt++
+                }
+                edge += at(x.toInt(), y.toInt(), mag)
+            }
+            if (cnt < n / 2) return -1e9
+            return tot / cnt + 0.5 * edge / n
+        }
+
+        var best: Array<DoubleArray>? = null
+        var bestS = Double.NEGATIVE_INFINITY
+        val minArea = 0.12 * w * h
+        for (i1 in horiz.indices) for (i2 in horiz.indices) {
+            if (i1 == i2) continue
+            for (j1 in vert.indices) for (j2 in vert.indices) {
+                if (j1 == j2) continue
+                val tl = inter(horiz[i1], vert[j1]) ?: continue
+                val tr = inter(horiz[i1], vert[j2]) ?: continue
+                val br = inter(horiz[i2], vert[j2]) ?: continue
+                val bl = inter(horiz[i2], vert[j1]) ?: continue
+                val pts = arrayOf(tl, tr, br, bl)
+                if (pts.any { it[0] < -0.05 * w || it[0] > 1.05 * w || it[1] < -0.05 * h || it[1] > 1.05 * h }) continue
+                if (tl[1] >= bl[1] || tr[1] >= br[1] || tl[0] >= tr[0] || bl[0] >= br[0]) continue
+                var ar = 0.0
+                for (k in 0 until 4) { val p = pts[k]; val q = pts[(k + 1) % 4]; ar += p[0] * q[1] - q[0] * p[1] }
+                ar = kotlin.math.abs(ar) / 2
+                if (ar < minArea) continue
+                val cx = pts.sumOf { it[0] } / 4; val cy = pts.sumOf { it[1] } / 4
+                var sc = 0.0
+                for (k in 0 until 4) sc += side(pts[k], pts[(k + 1) % 4], cx, cy)
+                if (sc <= 0) continue
+                sc *= 0.6 + 0.4 * ar / (w.toDouble() * h)
+                if (sc > bestS) { bestS = sc; best = pts }
+            }
+        }
+        val b = best ?: return null
+        return FloatArray(8) { i ->
+            val p = b[i / 2]
+            if (i % 2 == 0) (p[0] / w).toFloat().coerceIn(0f, 1f) else (p[1] / h).toFloat().coerceIn(0f, 1f)
+        }
+    }
+
+    /** Méthode de secours : plus grande zone claire (seuil d'Otsu). */
+    fun detectRegion(src: Bitmap): FloatArray? {
         val scale = 320f / max(src.width, src.height)
         val w = max(8, (src.width * scale).roundToInt())
         val h = max(8, (src.height * scale).roundToInt())
