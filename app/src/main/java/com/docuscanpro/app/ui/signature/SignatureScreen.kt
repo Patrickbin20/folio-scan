@@ -108,7 +108,7 @@ fun SignatureScreen(vm: LibraryViewModel, onBack: () -> Unit) {
                     items(saved, key = { it.absolutePath }) { f ->
                         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                FileImage(f.absolutePath, Modifier.weight(1f).height(80.dp).background(Color.White), ContentScale.Fit)
+                                FileImage(f.absolutePath, Modifier.weight(1f).height(80.dp), ContentScale.Fit, background = Color.White)
                                 IconButton(onClick = { vm.deleteSignature(f); saved = vm.signatures() }) { Icon(Icons.Outlined.Delete, "Supprimer", tint = Color(0xFFD93025)) }
                             }
                         }

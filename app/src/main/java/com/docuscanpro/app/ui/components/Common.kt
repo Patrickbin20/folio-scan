@@ -69,11 +69,11 @@ import java.util.Locale
 
 /** Image chargée depuis un fichier local, en arrière-plan. */
 @Composable
-fun FileImage(path: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+fun FileImage(path: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, background: Color? = null) {
     val bmp by produceState<ImageBitmap?>(null, path) {
         value = path?.let { p -> withContext(Dispatchers.IO) { runCatching { BitmapFactory.decodeFile(p)?.asImageBitmap() }.getOrNull() } }
     }
-    Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+    Box(modifier.background(background ?: MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
         val b = bmp
         if (b != null) Image(b, null, Modifier.fillMaxSize(), contentScale = contentScale)
         else Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

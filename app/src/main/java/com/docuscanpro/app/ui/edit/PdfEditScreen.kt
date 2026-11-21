@@ -64,6 +64,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -331,18 +332,41 @@ fun PdfEditScreen(id: Long, mode: String, vm: LibraryViewModel, onBack: () -> Un
         }
         "signature" -> {
             val sigs = remember { vm.signatures() }
+            var allPages by remember { mutableStateOf(false) }
             AlertDialog(
                 onDismissRequest = { dialog = null },
                 title = { Text("Choisir une signature") },
                 text = {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (sigs.isEmpty()) item { Text("Aucune signature enregistrée.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        items(sigs, key = { it.absolutePath }) { f ->
-                            Card(onClick = {
-                                dialog = null
-                                BitmapFactory.decodeFile(f.absolutePath)?.let { st.add(it, 0.32f, 0.8f) }
-                            }, colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                                FileImage(f.absolutePath, Modifier.fillMaxWidth().height(70.dp).background(Color.White).padding(8.dp), ContentScale.Fit)
+                    Column {
+                        if (st.pageCount > 1) {
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .clickable { allPages = !allPages }.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Signer toutes les pages (${st.pageCount})", style = MaterialTheme.typography.titleSmall)
+                                    Text("Même position, déplacées ensemble", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(checked = allPages, onCheckedChange = { allPages = it })
+                            }
+                            Spacer(Modifier.height(10.dp))
+                        }
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (sigs.isEmpty()) item { Text("Aucune signature enregistrée.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            items(sigs, key = { it.absolutePath }) { f ->
+                                Card(onClick = {
+                                    dialog = null
+                                    BitmapFactory.decodeFile(f.absolutePath)?.let { bmp ->
+                                        st.add(bmp, 0.32f, 0.8f)
+                                        if (allPages) {
+                                            st.selected?.let { id -> st.applyToPages(id, (0 until st.pageCount).toList()) }
+                                            vm.toast("Signature placée sur les ${st.pageCount} pages")
+                                        }
+                                    }
+                                }, colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
+                                    FileImage(f.absolutePath, Modifier.fillMaxWidth().height(76.dp).padding(8.dp), ContentScale.Fit, background = Color.White)
+                                }
                             }
                         }
                     }
