@@ -5,6 +5,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -14,52 +15,60 @@ import androidx.compose.ui.unit.sp
 import com.docuscanpro.app.R
 
 /*
- * Design « encre sur papier » : fond blanc cassé, cartes blanches à filets fins,
- * texte presque noir, un seul accent bleu réservé à l'action principale.
+ * Palette analogue apaisante : vert émeraude, vert sauge et bleu marine,
+ * fusionnés dans un dégradé fluide pour les éléments clés (action principale, bouton Scanner, logo).
  */
-val Ink = Color(0xFF0E1116)
-val Paper = Color(0xFFF6F6F3)
-val Line = Color(0xFFE3E3DE)
-val Accent = Color(0xFF2F5BFF)
-val Muted = Color(0xFF6B6E76)
-// Alias conservés pour les écrans existants
-val Navy = Ink
-val NavyDeep = Ink
-val Electric = Accent
-val Success = Color(0xFF1F7A5C)
+val Emerald = Color(0xFF0F9B77)
+val EmeraldLight = Color(0xFF3CC79A)
+val Sage = Color(0xFF8FB09C)
+val SageMist = Color(0xFFDCE7DF)
+val Navy = Color(0xFF142B4A)
+val NavyDeep = Color(0xFF0B1A2E)
+val Ink = Color(0xFF12233A)
+val Paper = Color(0xFFF4F7F4)
+val Line = Color(0xFFDCE4DD)
+val Accent = Emerald
+val Muted = Color(0xFF5E6E69)
+val Electric = Emerald
+val Success = Emerald
+
+/** Dégradé signature : sauge → émeraude → bleu marine. */
+val AppGradient = Brush.linearGradient(
+    colorStops = arrayOf(0f to Color(0xFF7FB59A), 0.38f to Emerald, 0.72f to Color(0xFF1C5A6B), 1f to Navy)
+)
 
 private val Light = lightColorScheme(
-    primary = Ink, onPrimary = Color.White,
-    primaryContainer = Color(0xFFEDEDE8), onPrimaryContainer = Ink,
-    secondary = Accent, onSecondary = Color.White,
-    secondaryContainer = Color(0xFFEEF2FF), onSecondaryContainer = Color(0xFF1B3FD1),
-    tertiary = Accent,
+    primary = Navy, onPrimary = Color.White,
+    primaryContainer = SageMist, onPrimaryContainer = Navy,
+    secondary = Emerald, onSecondary = Color.White,
+    secondaryContainer = Color(0xFFDDF3EA), onSecondaryContainer = Color(0xFF075E48),
+    tertiary = Color(0xFF6F8F7C), onTertiary = Color.White,
     background = Paper, onBackground = Ink,
     surface = Paper, onSurface = Ink,
-    surfaceVariant = Color(0xFFF1F1EC), onSurfaceVariant = Muted,
+    surfaceVariant = Color(0xFFEAF0EB), onSurfaceVariant = Muted,
     surfaceContainerLowest = Color.White, surfaceContainerLow = Color.White,
-    surfaceContainer = Color(0xFFF1F1EC), surfaceContainerHigh = Color(0xFFEDEDE8),
-    surfaceContainerHighest = Color(0xFFE6E6E0),
-    outline = Line, outlineVariant = Color(0xFFEDEDE8),
+    surfaceContainer = Color(0xFFEDF2EE), surfaceContainerHigh = Color(0xFFE5ECE7),
+    surfaceContainerHighest = Color(0xFFDDE6E0),
+    outline = Line, outlineVariant = Color(0xFFE8EEE9),
     scrim = Color.Black,
-    error = Color(0xFFC62828)
+    error = Color(0xFFC0392B)
 )
 
 private val Dark = darkColorScheme(
-    primary = Color(0xFFEDEEF0), onPrimary = Color(0xFF0D0E11),
-    primaryContainer = Color(0xFF23262C), onPrimaryContainer = Color(0xFFEDEEF0),
-    secondary = Color(0xFF4C72FF), onSecondary = Color.White,
-    secondaryContainer = Color(0xFF1B2547), onSecondaryContainer = Color(0xFFD3DCFF),
-    tertiary = Color(0xFF4C72FF),
-    background = Color(0xFF0D0E11), onBackground = Color(0xFFEDEEF0),
-    surface = Color(0xFF0D0E11), onSurface = Color(0xFFEDEEF0),
-    surfaceVariant = Color(0xFF22252B), onSurfaceVariant = Color(0xFF9A9EA7),
-    surfaceContainerLowest = Color(0xFF17191D), surfaceContainerLow = Color(0xFF17191D),
-    surfaceContainer = Color(0xFF1C1F24), surfaceContainerHigh = Color(0xFF23262C),
-    surfaceContainerHighest = Color(0xFF2A2D34),
-    outline = Color(0xFF262930), outlineVariant = Color(0xFF23262C),
+    primary = EmeraldLight, onPrimary = Color(0xFF062A20),
+    primaryContainer = Color(0xFF16302B), onPrimaryContainer = Color(0xFFD5F2E6),
+    secondary = EmeraldLight, onSecondary = Color(0xFF062A20),
+    secondaryContainer = Color(0xFF133B33), onSecondaryContainer = Color(0xFFCDEFE2),
+    tertiary = Sage, onTertiary = Color(0xFF13241B),
+    background = Color(0xFF0B1624), onBackground = Color(0xFFE6EEEA),
+    surface = Color(0xFF0B1624), onSurface = Color(0xFFE6EEEA),
+    surfaceVariant = Color(0xFF172739), onSurfaceVariant = Color(0xFF9AB0A6),
+    surfaceContainerLowest = Color(0xFF112032), surfaceContainerLow = Color(0xFF112032),
+    surfaceContainer = Color(0xFF15263A), surfaceContainerHigh = Color(0xFF1A2D43),
+    surfaceContainerHighest = Color(0xFF20354D),
+    outline = Color(0xFF1F3247), outlineVariant = Color(0xFF1A2B3F),
     scrim = Color.Black,
-    error = Color(0xFFFF6B60)
+    error = Color(0xFFFF7A6B)
 )
 
 val InterFamily = FontFamily(

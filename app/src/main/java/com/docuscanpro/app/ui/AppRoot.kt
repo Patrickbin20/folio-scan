@@ -276,10 +276,10 @@ private fun BottomBar(nav: NavHostController, route: String?, onScan: () -> Unit
         }
         Box(
             Modifier.align(Alignment.TopCenter).size(56.dp)
-                .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color.Black, spotColor = Color.Black)
-                .clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primary).clickable(onClick = onScan),
+                .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = com.docuscanpro.app.ui.theme.Emerald, spotColor = com.docuscanpro.app.ui.theme.Navy)
+                .clip(RoundedCornerShape(18.dp)).background(com.docuscanpro.app.ui.theme.AppGradient).clickable(onClick = onScan),
             contentAlignment = Alignment.Center
-        ) { Icon(Icons.Outlined.DocumentScanner, "Scanner", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(26.dp)) }
+        ) { Icon(Icons.Outlined.DocumentScanner, "Scanner", tint = Color.White, modifier = Modifier.size(26.dp)) }
     }
 }
 

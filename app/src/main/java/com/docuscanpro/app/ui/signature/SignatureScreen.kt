@@ -84,7 +84,7 @@ import java.io.File
 /** Point de signature (avec pression pour le stylet). */
 private data class SigPoint(val x: Float, val y: Float, val w: Float)
 
-private val INKS = listOf(Color(0xFF14235F), Color(0xFF111111), Color(0xFF1E5BFF))
+private val INKS = listOf(Color(0xFF142B4A), Color(0xFF111111), Color(0xFF0F7A5E))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

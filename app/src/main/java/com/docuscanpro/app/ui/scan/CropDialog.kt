@@ -62,7 +62,7 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private val Accent = Color(0xFF2F6BFF)
+private val Accent = Color(0xFF3CC79A)
 
 /** Recadrage précis : 4 coins déplaçables, loupe de précision, détection automatique, correction de perspective. */
 @Composable
@@ -80,7 +80,7 @@ fun CropDialog(scanVm: ScanViewModel, page: ScanPage, onDismiss: () -> Unit, onA
 
     val bars = com.docuscanpro.app.ui.components.rememberSystemBarsPadding()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Column(Modifier.fillMaxSize().background(Color(0xFF0B0D12)).padding(bars)) {
+        Column(Modifier.fillMaxSize().background(Color(0xFF0B1624)).padding(bars)) {
             Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Annuler", tint = Color.White) }
                 Text("Recadrer", color = Color.White, modifier = Modifier.weight(1f))

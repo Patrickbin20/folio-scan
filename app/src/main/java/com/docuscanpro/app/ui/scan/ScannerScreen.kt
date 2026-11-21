@@ -89,8 +89,8 @@ import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.min
 
-private val Accent = Color(0xFF2F5BFF)
-private val Ok = Color(0xFF3DDC97)
+private val Accent = Color(0xFF3CC79A)
+private val Ok = Color(0xFF9EE6C4)
 
 enum class ScanMode(val label: String) { SINGLE("Document"), MULTI("Multi-pages"), IDCARD("Carte d'identité") }
 

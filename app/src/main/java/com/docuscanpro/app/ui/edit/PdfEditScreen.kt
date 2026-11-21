@@ -250,7 +250,7 @@ fun PdfEditScreen(id: Long, mode: String, vm: LibraryViewModel, onBack: () -> Un
                             SmallAction(Icons.Outlined.Delete, "Supprimer") { st.remove(sel.id) }
                         }
                     } else if (st.tool != EditTool.MOVE) {
-                        val colors = if (st.tool == EditTool.PEN) listOf(Color(0xFF14235F), Color(0xFF111111), Color(0xFFD93025), Color(0xFF1E5BFF))
+                        val colors = if (st.tool == EditTool.PEN) listOf(Color(0xFF142B4A), Color(0xFF111111), Color(0xFFD93025), Color(0xFF0F9B77))
                         else listOf(Color(0xFFFFD60A), Color(0xFF7CFC8A), Color(0xFFFF8AD8), Color(0xFF7FD3FF))
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             androidx.compose.material3.FilterChip(selected = st.tool == EditTool.PEN, onClick = { st.tool = EditTool.PEN }, label = { Text("Stylo") })
@@ -450,7 +450,7 @@ private fun EditablePage(session: PdfSession, st: EditState) {
                             detectTapGestures { st.selected = item.id }
                         }
                         .graphicsLayer { rotationZ = item.rot }
-                        .then(if (selected) Modifier.border(1.5.dp, Color(0xFF2F6BFF), RoundedCornerShape(4.dp)) else Modifier)
+                        .then(if (selected) Modifier.border(1.5.dp, Color(0xFF0F9B77), RoundedCornerShape(4.dp)) else Modifier)
                 ) { Image(item.bitmap.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
             }
             // Couche de dessin

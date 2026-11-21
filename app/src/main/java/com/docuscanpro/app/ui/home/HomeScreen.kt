@@ -65,6 +65,7 @@ import com.docuscanpro.app.ui.components.formatSize
 import com.docuscanpro.app.ui.components.pagesLabel
 import com.docuscanpro.app.ui.components.rememberDocActions
 import com.docuscanpro.app.ui.state.LibraryViewModel
+import com.docuscanpro.app.ui.theme.AppGradient
 import com.docuscanpro.app.ui.tools.DocPickerDialog
 import com.docuscanpro.app.ui.tools.DocTool
 import com.docuscanpro.app.ui.tools.ToolDialogs
@@ -107,8 +108,8 @@ fun HomeScreen(
         // En-tête
         item {
             Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(26.dp).clip(RoundedCornerShape(7.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.DocumentScanner, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
+                Box(Modifier.size(26.dp).clip(RoundedCornerShape(7.dp)).background(AppGradient), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.DocumentScanner, null, tint = Color.White, modifier = Modifier.size(15.dp))
                 }
                 Spacer(Modifier.width(8.dp))
                 Text("DocuScan", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
@@ -142,24 +143,22 @@ fun HomeScreen(
                 }
             }
         }
-        // Action principale
+        // Action principale — dégradé sauge → émeraude → marine
         item {
-            Surface(
-                onClick = actions.scan, shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(AppGradient).clickable(onClick = actions.scan).padding(20.dp)
             ) {
-                Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondary), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.DocumentScanner, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(50.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.DocumentScanner, null, tint = Color.White, modifier = Modifier.size(26.dp))
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Scanner un document", style = MaterialTheme.typography.titleMedium)
+                        Text("Scanner un document", style = MaterialTheme.typography.titleMedium, color = Color.White)
                         Spacer(Modifier.height(2.dp))
-                        Text("Bords et perspective corrigés automatiquement", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Bords et perspective corrigés automatiquement", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
                     }
-                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = Color.White)
                 }
             }
         }
