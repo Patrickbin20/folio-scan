@@ -5,6 +5,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -176,11 +181,13 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, trailing: (@Comp
  * plein écran : à l'intérieur d'un Dialog, les marges système ne sont pas toujours transmises.
  */
 @Composable
-fun rememberSystemBarsPadding(): androidx.compose.foundation.layout.PaddingValues {
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val top = androidx.compose.foundation.layout.WindowInsets.statusBars.getTop(density)
-    val bottom = androidx.compose.foundation.layout.WindowInsets.navigationBars.getBottom(density)
-    return with(density) { androidx.compose.foundation.layout.PaddingValues(top = top.toDp(), bottom = bottom.toDp().coerceAtLeast(24.dp) + 8.dp) }
+fun rememberSystemBarsPadding(): PaddingValues {
+    val density = LocalDensity.current
+    val top = WindowInsets.statusBars.getTop(density)
+    val bottom = WindowInsets.navigationBars.getBottom(density)
+    val topDp = with(density) { top.toDp() }
+    val bottomDp = with(density) { bottom.toDp() }
+    return PaddingValues(top = topDp, bottom = maxOf(bottomDp, 24.dp) + 8.dp)
 }
 
 fun formatDate(ms: Long): String = SimpleDateFormat("d MMM yyyy · HH:mm", Locale.FRANCE).format(Date(ms))
