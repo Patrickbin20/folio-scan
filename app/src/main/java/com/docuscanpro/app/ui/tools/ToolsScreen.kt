@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,77 +13,152 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
+import androidx.compose.material.icons.outlined.BorderColor
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CallMerge
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.Compress
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.ManageSearch
 import androidx.compose.material.icons.outlined.PictureAsPdf
-import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Print
+import androidx.compose.material.icons.outlined.Reorder
+import androidx.compose.material.icons.outlined.Gesture
+import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.docuscanpro.app.data.db.DocumentEntity
 import com.docuscanpro.app.ui.LocalAppActions
+import com.docuscanpro.app.ui.components.TextInputDialog
+import com.docuscanpro.app.ui.state.LibraryViewModel
 
-/** Outils disponibles. Seuls les outils réellement implémentés sont affichés. */
+private class ToolItem(val icon: ImageVector, val title: String, val subtitle: String, val onClick: () -> Unit)
+
+/** Tous les outils — chacun est réellement fonctionnel. */
 @Composable
-fun ToolsScreen(onOpenLibrary: () -> Unit) {
+fun ToolsScreen(
+    vm: LibraryViewModel,
+    openViewer: (Long) -> Unit, openEdit: (Long, String) -> Unit, openPages: (Long) -> Unit,
+    openText: (Long) -> Unit, openSignatures: () -> Unit, openWeb: () -> Unit
+) {
     val a = LocalAppActions.current
-    LazyColumn(
-        Modifier.fillMaxSize().statusBarsPadding(),
+    val ctl = rememberToolController()
+    var pickFor by remember { mutableStateOf<DocTool?>(null) }
+    var mergePick by remember { mutableStateOf(false) }
+    var mergeList by remember { mutableStateOf<List<DocumentEntity>?>(null) }
+
+    val sections = listOf(
+        "Numériser" to listOf(
+            ToolItem(Icons.Outlined.DocumentScanner, "Scanner", "Bords, perspective, capture auto", a.scan),
+            ToolItem(Icons.Outlined.Badge, "Carte d'identité", "Recto + verso sur une page A4", a.scanIdCard),
+            ToolItem(Icons.Outlined.Collections, "Images en PDF", "JPG / PNG → un seul PDF", a.importImages),
+            ToolItem(Icons.Outlined.PictureAsPdf, "Importer un PDF", "Y compris protégé par mot de passe", a.importPdf)
+        ),
+        "Signer et annoter" to listOf(
+            ToolItem(Icons.Outlined.Draw, "Signer", "Signature, initiales, date", { pickFor = DocTool.SIGN }),
+            ToolItem(Icons.Outlined.BorderColor, "Annoter", "Stylo, surligneur, texte", { pickFor = DocTool.ANNOTATE }),
+            ToolItem(Icons.Outlined.Gesture, "Mes signatures", "Créer, importer, gérer", openSignatures)
+        ),
+        "Organiser" to listOf(
+            ToolItem(Icons.Outlined.CallMerge, "Fusionner", "Plusieurs PDF en un", { mergePick = true }),
+            ToolItem(Icons.Outlined.CallSplit, "Diviser / extraire", "Par plages ou sélection", { pickFor = DocTool.PAGES }),
+            ToolItem(Icons.Outlined.Reorder, "Organiser les pages", "Ordre, rotation, suppression", { pickFor = DocTool.PAGES }),
+            ToolItem(Icons.Outlined.AutoAwesomeMosaic, "Collage", "2 ou 4 pages par feuille", { pickFor = DocTool.COLLAGE })
+        ),
+        "Optimiser et protéger" to listOf(
+            ToolItem(Icons.Outlined.Compress, "Compresser", "Réduire la taille du PDF", { pickFor = DocTool.COMPRESS }),
+            ToolItem(Icons.Outlined.WaterDrop, "Filigrane", "Texte en diagonale", { pickFor = DocTool.WATERMARK }),
+            ToolItem(Icons.Outlined.Lock, "Mot de passe", "Protéger avant envoi", { pickFor = DocTool.PROTECT }),
+            ToolItem(Icons.Outlined.LockOpen, "Déverrouiller", "Importer un PDF protégé", a.importPdf)
+        ),
+        "Texte et conversion" to listOf(
+            ToolItem(Icons.Outlined.TextSnippet, "Extraire le texte", "OCR : copier, partager", { pickFor = DocTool.TEXT }),
+            ToolItem(Icons.Outlined.Description, "PDF en Word", "Texte reconnu → .docx", { pickFor = DocTool.DOCX }),
+            ToolItem(Icons.Outlined.ManageSearch, "PDF sélectionnable", "Ajoute une couche de texte", { pickFor = DocTool.SEARCHABLE }),
+            ToolItem(Icons.Outlined.Language, "Page web en PDF", "Via l'impression Android", openWeb),
+            ToolItem(Icons.Outlined.Print, "Imprimer", "Imprimante ou PDF", { pickFor = DocTool.PRINT })
+        )
+    )
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(160.dp),
+        modifier = Modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = PaddingValues(20.dp, 12.dp, 20.dp, 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Outils", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 4.dp)) }
-        item { ToolCard(Icons.Outlined.DocumentScanner, "Scanner un document", "Bords détectés, recadrage, perspective et capture automatique", a.scan) }
-        item { ToolCard(Icons.Outlined.Collections, "Convertir des images en PDF", "Une ou plusieurs images JPG/PNG en un seul PDF", a.importImages) }
-        item { ToolCard(Icons.Outlined.PictureAsPdf, "Importer un PDF", "Ajouter un PDF existant à votre bibliothèque", a.importPdf) }
-        item { ToolCard(Icons.Outlined.FolderOpen, "Mes documents", "Rechercher, trier, organiser en dossiers", onOpenLibrary) }
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(16.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(Icons.Outlined.Schedule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "Prochaines versions : signature électronique, fusion et division de PDF, compression, mot de passe, annotations et OCR.",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        item(span = { GridItemSpan(maxLineSpan) }) { Text("Outils", style = MaterialTheme.typography.headlineMedium) }
+        sections.forEach { (title, tools) ->
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
             }
+            items(tools) { t -> ToolTile(t) }
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Text("La reconnaissance de texte fonctionne hors-ligne pour l'alphabet latin (français, anglais, espagnol…). L'arabe n'est pas encore pris en charge.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         }
     }
+
+    pickFor?.let { tool ->
+        DocPickerDialog("Choisir un document", vm, multi = false, confirmLabel = "", onDismiss = { pickFor = null }) { list ->
+            pickFor = null; list.firstOrNull()?.let { ctl.run(tool, it) }
+        }
+    }
+    if (mergePick) {
+        DocPickerDialog("Fusionner des PDF", vm, multi = true, confirmLabel = "Fusionner", onDismiss = { mergePick = false }) { list ->
+            mergePick = false; mergeList = list
+        }
+    }
+    mergeList?.let { list ->
+        TextInputDialog("Nom du PDF fusionné", "${list.first().name} (fusion)", "Fusionner", { mergeList = null }) { name ->
+            mergeList = null; vm.merge(list, name, openViewer)
+        }
+    }
+    ToolDialogs(ctl, vm, openViewer, openEdit, openPages, openText)
 }
 
 @Composable
-private fun ToolCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+private fun ToolTile(t: ToolItem) {
     Card(
-        onClick = onClick, shape = RoundedCornerShape(18.dp),
+        onClick = t.onClick, shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.fillMaxWidth()
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        Column(Modifier.padding(14.dp)) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+                Icon(t.icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
             }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(2.dp))
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            Text(t.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(t.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }

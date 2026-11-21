@@ -17,6 +17,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material3.Switch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Palette
@@ -62,6 +67,7 @@ fun ProfileScreen(vm: LibraryViewModel) {
     val docs by vm.documents.collectAsState()
     val context = LocalContext.current
     var editName by remember { mutableStateOf(false) }
+    val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) vm.backupAll(uri) }
     var used by remember { mutableLongStateOf(0L) }
     var cache by remember { mutableLongStateOf(0L) }
     var refresh by remember { mutableIntStateOf(0) }
@@ -104,6 +110,22 @@ fun ProfileScreen(vm: LibraryViewModel) {
         item {
             Section(Icons.Outlined.Upload, "Format d'export par défaut") {
                 Choice(listOf("PDF", "JPEG"), ExportFormat.entries.indexOf(s.exportFormat)) { vm.setExportFormat(ExportFormat.entries[it]) }
+            }
+        }
+        item {
+            Section(Icons.Outlined.TextSnippet, "Reconnaissance de texte") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Analyser automatiquement les nouveaux documents (recherche dans le contenu)", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = s.autoOcr, onCheckedChange = { vm.setAutoOcr(it) })
+                }
+                Text("Hors-ligne, alphabet latin (français, anglais…). L'arabe n'est pas encore pris en charge.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item {
+            Section(Icons.Outlined.Backup, "Sauvegarde") {
+                Text("Copie tous vos documents (PDF) dans un dossier de votre choix : téléphone, carte SD ou Google Drive.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                OutlinedButton(onClick = { backupPicker.launch(null) }, shape = RoundedCornerShape(12.dp), enabled = docs.isNotEmpty()) { Text("Sauvegarder tous les documents") }
             }
         }
         item {

@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.docuscanpro.app.data.AppContainer
+import com.docuscanpro.app.imaging.Collage
+import com.docuscanpro.app.imaging.DocDetector
 import com.docuscanpro.app.imaging.ImageProcessor
 import com.docuscanpro.app.imaging.ScanFilter
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +33,9 @@ data class ScanPage(
     val rotation: Int = 0,
     val filter: ScanFilter = ScanFilter.ORIGINAL,
     val brightness: Float = 0f,
-    val contrast: Float = 1f
+    val contrast: Float = 1f,
+    /** Quadrilatère de recadrage (8 valeurs 0..1, dans l'orientation affichée) ou null = image entière */
+    val crop: FloatArray? = null
 )
 
 data class ScanUiState(
@@ -58,7 +62,7 @@ class ScanViewModel(private val context: Context, private val c: AppContainer) :
 
     private fun defaultName(source: String): String {
         val d = SimpleDateFormat("yyyy-MM-dd HH.mm", Locale.FRANCE).format(Date())
-        return if (source == "images") "Images $d" else "Scan $d"
+        return when (source) { "images" -> "Images $d"; "idcard" -> "Carte d'identité $d"; else -> "Scan $d" }
     }
 
     fun start(uris: List<Uri>, source: String) {
@@ -82,7 +86,17 @@ class ScanViewModel(private val context: Context, private val c: AppContainer) :
         if (s.pages.isEmpty()) s else s.copy(pages = s.pages.mapIndexed { i, p -> if (i == s.selected) f(p) else p })
     }
 
-    fun rotate() = editSelected { it.copy(rotation = (it.rotation + 90) % 360) }
+    fun rotate() = editSelected { it.copy(rotation = (it.rotation + 90) % 360, crop = it.crop?.let { q -> DocDetector.rotateQuad90(q) }) }
+    fun setCrop(q: FloatArray?) = editSelected { it.copy(crop = q) }
+
+    /** Image pivotée (sans recadrage) pour l'écran de recadrage + coins détectés automatiquement. */
+    suspend fun cropSource(page: ScanPage): Pair<Bitmap, FloatArray?>? {
+        val b = base(page.uri, 1600) ?: return null
+        return withContext(Dispatchers.Default) {
+            val r = ImageProcessor.rotate(b, page.rotation)
+            r to DocDetector.detect(r)
+        }
+    }
     fun setFilter(f: ScanFilter) = editSelected { it.copy(filter = f) }
     fun setBrightness(v: Float) = editSelected { it.copy(brightness = v) }
     fun setContrast(v: Float) = editSelected { it.copy(contrast = v) }
@@ -124,7 +138,7 @@ class ScanViewModel(private val context: Context, private val c: AppContainer) :
     suspend fun preview(page: ScanPage, maxDim: Int = 1100): Bitmap? {
         val b = base(page.uri, maxDim) ?: return null
         return withContext(Dispatchers.Default) {
-            ImageProcessor.process(b, page.rotation, page.filter, page.brightness, page.contrast)
+            ImageProcessor.process(b, page.rotation, page.filter, page.brightness, page.contrast, page.crop)
         }
     }
 
@@ -142,7 +156,7 @@ class ScanViewModel(private val context: Context, private val c: AppContainer) :
                 val files = withContext(Dispatchers.Default) {
                     s.pages.mapIndexed { i, p ->
                         val src = ImageProcessor.decodeSampled(context, p.uri, maxDim)
-                        val out = ImageProcessor.process(src, p.rotation, p.filter, p.brightness, p.contrast)
+                        val out = ImageProcessor.process(src, p.rotation, p.filter, p.brightness, p.contrast, p.crop)
                         src.recycle()
                         val f = File(tmp, "page_${i + 1}.jpg")
                         ImageProcessor.writeJpeg(out, f, quality)
@@ -151,7 +165,9 @@ class ScanViewModel(private val context: Context, private val c: AppContainer) :
                         f
                     }
                 }
-                val id = c.documents.createFromImages(s.name, files, s.folderId, s.source)
+                val pagesForPdf = if (s.source == "idcard") listOf(Collage.idCard(files, File(tmp, "idcard.jpg"), quality)) else files
+                val id = c.documents.createFromImages(s.name, pagesForPdf, s.folderId, s.source)
+                c.indexInBackground(id)
                 clear()
                 onDone(id)
             } catch (e: OutOfMemoryError) {

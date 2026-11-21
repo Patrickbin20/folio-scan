@@ -27,6 +27,12 @@ interface DocumentDao {
     @Delete
     suspend fun delete(doc: DocumentEntity)
 
+    @Query("UPDATE documents SET ocrText = :text WHERE id = :id")
+    suspend fun setOcrText(id: Long, text: String?)
+
+    @Query("SELECT * FROM documents")
+    suspend fun all(): List<DocumentEntity>
+
     @Query("UPDATE documents SET folderId = NULL WHERE folderId = :folderId")
     suspend fun clearFolder(folderId: Long)
 }

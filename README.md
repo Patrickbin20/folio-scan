@@ -18,8 +18,16 @@ Kotlin · Jetpack Compose · Material 3 · MVVM · Room · DataStore · Google M
 - Profil : nom, thème clair/sombre/système, qualité de scan, format d'export, stockage, confidentialité
 - Aucune permission Android requise, aucun envoi de données
 
-## Prochaines phases
-2. Signature électronique · 3. Outils PDF (fusion, division, compression, mot de passe, filigrane) · 4. OCR et annotations
+## Version 2
+- Recadrage précis : détection automatique des bords, 4 coins avec loupe ×3, correction de perspective
+- Mode carte d'identité (recto/verso à taille réelle sur A4)
+- Signature : dessin au doigt/stylet (pression), nom stylisé, import d'image, plusieurs signatures ;
+  placement libre (déplacer, pincer pour redimensionner/pivoter), initiales, date, texte, aperçu, nouveau fichier
+- Annotations : stylo et surligneur (couleurs), annulation
+- Outils PDF (PdfBox) : fusion, extraction, division par plages, organisation (ordre, rotation, suppression),
+  compression, filigrane, protection par mot de passe, déverrouillage, collage 2/4 pages, impression, page web → PDF
+- OCR ML Kit (latin) : extraction du texte, recherche dans le contenu, PDF avec texte sélectionnable, export Word (.docx)
+- Sauvegarde de tous les documents dans un dossier
 
 ## Architecture
 ```

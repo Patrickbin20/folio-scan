@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.BrightnessMedium
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.Crop
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Folder
@@ -90,6 +91,7 @@ fun EditorScreen(scanVm: ScanViewModel, vm: LibraryViewModel, onClose: () -> Uni
     val actions = LocalAppActions.current
     var confirmExit by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
+    var cropping by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.pages.isEmpty(), state.saving) { if (state.pages.isEmpty() && !state.saving) onClose() }
     BackHandler(enabled = !state.saving) { confirmExit = true }
@@ -146,7 +148,8 @@ fun EditorScreen(scanVm: ScanViewModel, vm: LibraryViewModel, onClose: () -> Uni
             LazyRow(contentPadding = PaddingValues(16.dp, 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 itemsIndexed(state.pages, key = { _, p -> p.id }) { i, p -> PageThumb(scanVm, p, i, i == state.selected) { scanVm.select(i) } }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Tool(Icons.Outlined.Crop, "Recadrer") { cropping = true }
                 Tool(Icons.Outlined.RotateRight, "Pivoter") { scanVm.rotate() }
                 Tool(Icons.AutoMirrored.Outlined.ArrowBack, "Avancer", state.selected > 0) { scanVm.move(-1) }
                 Tool(Icons.AutoMirrored.Outlined.ArrowForward, "Reculer", state.selected < state.pages.size - 1) { scanVm.move(1) }
@@ -193,6 +196,9 @@ fun EditorScreen(scanVm: ScanViewModel, vm: LibraryViewModel, onClose: () -> Uni
         }
     }
 
+    if (cropping && page != null) {
+        CropDialog(scanVm, page, onDismiss = { cropping = false }) { q -> scanVm.setCrop(q); cropping = false }
+    }
     if (confirmExit) {
         ConfirmDialog("Abandonner ce scan ?", "Les pages non enregistrées seront perdues.", "Abandonner", { confirmExit = false }) {
             confirmExit = false; scanVm.clear(); onClose()
@@ -223,7 +229,7 @@ private fun PageThumb(scanVm: ScanViewModel, page: ScanPage, index: Int, selecte
 @Composable
 private fun Tool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
     Column(
-        Modifier.clip(RoundedCornerShape(14.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        Modifier.clip(RoundedCornerShape(14.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val c = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)

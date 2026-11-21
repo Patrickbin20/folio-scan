@@ -63,6 +63,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.docuscanpro.app.ui.documents.DocumentsScreen
+import com.docuscanpro.app.ui.edit.PdfEditScreen
+import com.docuscanpro.app.ui.pages.PagesScreen
+import com.docuscanpro.app.ui.signature.SignatureScreen
+import com.docuscanpro.app.ui.text.TextScreen
+import com.docuscanpro.app.ui.tools.PasswordDialog
+import com.docuscanpro.app.ui.web.WebToPdfScreen
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.docuscanpro.app.ui.home.HomeScreen
 import com.docuscanpro.app.ui.profile.ProfileScreen
 import com.docuscanpro.app.ui.scan.EditorScreen
@@ -83,6 +96,14 @@ object Routes {
     const val PROFILE = "profile"
     const val EDITOR = "editor"
     const val VIEWER = "viewer/{id}"
+    const val EDIT = "edit/{id}?mode={mode}"
+    const val PAGES = "pages/{id}"
+    const val TEXT = "text/{id}"
+    const val SIGNATURES = "signatures"
+    const val WEB = "web"
+    fun edit(id: Long, mode: String) = "edit/$id?mode=$mode"
+    fun pages(id: Long) = "pages/$id"
+    fun text(id: Long) = "text/$id"
     fun docs(filter: String = "all", focus: Boolean = false) = "documents?filter=$filter&focus=$focus"
     fun viewer(id: Long) = "viewer/$id"
 }
@@ -97,6 +118,9 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
     val currentRoute by rememberUpdatedState(route)
 
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    var scanMode by remember { mutableStateOf("scan") }
+    var protectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val busy by vm.busy.collectAsState()
 
     // --- Scanner ML Kit (bords, recadrage, perspective, capture auto/manuelle, multi-pages) ---
     val scanLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
@@ -105,7 +129,7 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
             val uris = result?.pages?.map { it.imageUri }.orEmpty()
             if (uris.isNotEmpty()) {
                 if (currentRoute == Routes.EDITOR) scanVm.addPages(uris)
-                else { scanVm.start(uris, "scan"); nav.navigate(Routes.EDITOR) }
+                else { scanVm.start(uris, scanMode); nav.navigate(Routes.EDITOR) }
             }
         }
     }
@@ -116,22 +140,25 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
         }
     }
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.importPdf(uri) { id -> nav.navigate(Routes.viewer(id)) }
+        if (uri != null) vm.importPdf(uri, onProtected = { protectedUri = uri }) { id -> nav.navigate(Routes.viewer(id)) }
     }
 
     val actions = remember {
+        fun launchScanner(mode: String, limit: Int) {
+            scanMode = mode
+            val options = GmsDocumentScannerOptions.Builder()
+                .setGalleryImportAllowed(true)
+                .setPageLimit(limit)
+                .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+                .build()
+            GmsDocumentScanning.getClient(options).getStartScanIntent(activity)
+                .addOnSuccessListener { scanLauncher.launch(IntentSenderRequest.Builder(it).build()) }
+                .addOnFailureListener { vm.toast("Scanner indisponible : vérifiez les services Google Play (${it.localizedMessage ?: "erreur"})") }
+        }
         AppActions(
-            scan = {
-                val options = GmsDocumentScannerOptions.Builder()
-                    .setGalleryImportAllowed(true)
-                    .setPageLimit(50)
-                    .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
-                    .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
-                    .build()
-                GmsDocumentScanning.getClient(options).getStartScanIntent(activity)
-                    .addOnSuccessListener { scanLauncher.launch(IntentSenderRequest.Builder(it).build()) }
-                    .addOnFailureListener { vm.toast("Scanner indisponible : vérifiez les services Google Play (${it.localizedMessage ?: "erreur"})") }
-            },
+            scan = { launchScanner("scan", 50) },
+            scanIdCard = { vm.toast("Scannez le recto puis le verso de la carte"); launchScanner("idcard", 2) },
             importImages = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             importPdf = { pdfLauncher.launch(arrayOf("application/pdf")) }
         )
@@ -154,7 +181,10 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
                         vm,
                         onOpenDocument = { nav.navigate(Routes.viewer(it)) },
                         onOpenLibrary = { f, focus -> nav.navigateTab(Routes.docs(f, focus)) },
-                        onOpenProfile = { nav.navigateTab(Routes.PROFILE) }
+                        onOpenProfile = { nav.navigateTab(Routes.PROFILE) },
+                        openEdit = { id, m -> nav.navigate(Routes.edit(id, m)) },
+                        openPages = { nav.navigate(Routes.pages(it)) },
+                        openText = { nav.navigate(Routes.text(it)) }
                     )
                 }
                 composable(
@@ -171,7 +201,33 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
                         onOpenDocument = { nav.navigate(Routes.viewer(it)) }
                     )
                 }
-                composable(Routes.TOOLS) { ToolsScreen(onOpenLibrary = { nav.navigateTab(Routes.docs()) }) }
+                composable(Routes.TOOLS) {
+                    ToolsScreen(
+                        vm, openViewer = { nav.navigate(Routes.viewer(it)) }, openEdit = { id, m -> nav.navigate(Routes.edit(id, m)) },
+                        openPages = { nav.navigate(Routes.pages(it)) }, openText = { nav.navigate(Routes.text(it)) },
+                        openSignatures = { nav.navigate(Routes.SIGNATURES) }, openWeb = { nav.navigate(Routes.WEB) }
+                    )
+                }
+                composable(Routes.EDIT, arguments = listOf(
+                    navArgument("id") { type = NavType.LongType },
+                    navArgument("mode") { type = NavType.StringType; defaultValue = "sign" }
+                )) { entry ->
+                    PdfEditScreen(
+                        entry.arguments?.getLong("id") ?: 0L, entry.arguments?.getString("mode") ?: "sign", vm,
+                        onBack = { nav.popBackStack() },
+                        onOpenSignatures = { nav.navigate(Routes.SIGNATURES) },
+                        onSaved = { newId -> nav.navigate(Routes.viewer(newId)) { popUpTo(Routes.EDIT) { inclusive = true } } }
+                    )
+                }
+                composable(Routes.PAGES, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+                    PagesScreen(entry.arguments?.getLong("id") ?: 0L, vm, onBack = { nav.popBackStack() },
+                        onOpen = { newId -> nav.navigate(Routes.viewer(newId)) { popUpTo(Routes.PAGES) { inclusive = true } } })
+                }
+                composable(Routes.TEXT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+                    TextScreen(entry.arguments?.getLong("id") ?: 0L, vm, onBack = { nav.popBackStack() })
+                }
+                composable(Routes.SIGNATURES) { SignatureScreen(vm, onBack = { nav.popBackStack() }) }
+                composable(Routes.WEB) { WebToPdfScreen(onBack = { nav.popBackStack() }) }
                 composable(Routes.PROFILE) { ProfileScreen(vm) }
                 composable(Routes.EDITOR) {
                     EditorScreen(
@@ -184,7 +240,26 @@ fun AppRoot(vm: LibraryViewModel, scanVm: ScanViewModel) {
                     )
                 }
                 composable(Routes.VIEWER, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
-                    ViewerScreen(entry.arguments?.getLong("id") ?: 0L, vm, onBack = { nav.popBackStack() })
+                    ViewerScreen(
+                        entry.arguments?.getLong("id") ?: 0L, vm, onBack = { nav.popBackStack() },
+                        openViewer = { nav.navigate(Routes.viewer(it)) }, openEdit = { id, m -> nav.navigate(Routes.edit(id, m)) },
+                        openPages = { nav.navigate(Routes.pages(it)) }, openText = { nav.navigate(Routes.text(it)) }
+                    )
+                }
+            }
+        }
+        protectedUri?.let { uri ->
+            PasswordDialog("PDF protégé", "Ce PDF est protégé. Saisissez son mot de passe pour l'importer déverrouillé.", false, { protectedUri = null },
+                actions = listOf("Déverrouiller" to { pw: String -> protectedUri = null; vm.importProtected(uri, pw) { id -> nav.navigate(Routes.viewer(id)) } }))
+        }
+        busy?.let { msg ->
+            Dialog(onDismissRequest = {}, properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
+                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.width(16.dp))
+                        Text(msg, style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
         }

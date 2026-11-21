@@ -23,7 +23,8 @@ data class AppSettings(
     val highQuality: Boolean = true,
     val exportFormat: ExportFormat = ExportFormat.PDF,
     val gridView: Boolean = false,
-    val sort: SortOrder = SortOrder.DATE
+    val sort: SortOrder = SortOrder.DATE,
+    val autoOcr: Boolean = true
 )
 
 /** Réglages persistants (DataStore). */
@@ -35,6 +36,7 @@ class SettingsRepository(private val context: Context) {
         val export = stringPreferencesKey("export_format")
         val grid = booleanPreferencesKey("grid_view")
         val sort = stringPreferencesKey("sort")
+        val ocr = booleanPreferencesKey("auto_ocr")
     }
 
     private inline fun <reified T : Enum<T>> Preferences.enumOf(key: Preferences.Key<String>, default: T): T =
@@ -49,7 +51,8 @@ class SettingsRepository(private val context: Context) {
                 highQuality = p[Keys.quality] ?: true,
                 exportFormat = p.enumOf(Keys.export, ExportFormat.PDF),
                 gridView = p[Keys.grid] ?: false,
-                sort = p.enumOf(Keys.sort, SortOrder.DATE)
+                sort = p.enumOf(Keys.sort, SortOrder.DATE),
+                autoOcr = p[Keys.ocr] ?: true
             )
         }
 
@@ -59,4 +62,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setExportFormat(v: ExportFormat) { context.dataStore.edit { it[Keys.export] = v.name } }
     suspend fun setGridView(v: Boolean) { context.dataStore.edit { it[Keys.grid] = v } }
     suspend fun setSort(v: SortOrder) { context.dataStore.edit { it[Keys.sort] = v.name } }
+    suspend fun setAutoOcr(v: Boolean) { context.dataStore.edit { it[Keys.ocr] = v } }
 }

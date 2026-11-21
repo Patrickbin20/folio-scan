@@ -12,6 +12,7 @@ import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.io.IOException
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -30,7 +31,9 @@ object ImageProcessor {
     fun decodeSampled(context: Context, uri: Uri, maxDim: Int): Bitmap {
         val cr = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: throw IOException("Image introuvable")
+        // En mode « limites seules », decodeStream renvoie toujours null : on vérifie le flux, pas le résultat
+        val stream = cr.openInputStream(uri) ?: throw IOException("Image introuvable")
+        stream.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0) throw IOException("Format d'image non pris en charge")
         var sample = 1
         while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxDim) sample *= 2
@@ -80,8 +83,9 @@ object ImageProcessor {
      * Applique rotation + filtre + réglages.
      * @param brightness -1..1   @param contrast 0.5..1.5
      */
-    fun process(src: Bitmap, rotation: Int, filter: ScanFilter, brightness: Float, contrast: Float): Bitmap {
-        val rotated = rotate(src, rotation)
+    fun process(src: Bitmap, rotation: Int, filter: ScanFilter, brightness: Float, contrast: Float, crop: FloatArray? = null): Bitmap {
+        val turned = rotate(src, rotation)
+        val rotated = if (crop != null) warp(turned, crop).also { if (turned != src) turned.recycle() } else turned
         val cm = ColorMatrix()
         when (filter) {
             ScanFilter.ORIGINAL -> Unit
@@ -128,6 +132,27 @@ object ImageProcessor {
             bmp.setPixels(row, 0, w, 0, y, w, 1)
         }
         bg.recycle()
+    }
+
+    /**
+     * Recadrage + correction de perspective : le quadrilatère [quad] (8 valeurs normalisées 0..1,
+     * ordre haut-gauche, haut-droit, bas-droit, bas-gauche) est redressé en rectangle.
+     */
+    fun warp(src: Bitmap, quad: FloatArray): Bitmap {
+        val w = src.width.toFloat()
+        val h = src.height.toFloat()
+        val p = FloatArray(8) { i -> quad[i] * if (i % 2 == 0) w else h }
+        fun d(a: Int, b: Int) = hypot((p[2 * a] - p[2 * b]).toDouble(), (p[2 * a + 1] - p[2 * b + 1]).toDouble()).toFloat()
+        val outW = max(d(0, 1), d(3, 2)).roundToInt().coerceIn(16, 6000)
+        val outH = max(d(0, 3), d(1, 2)).roundToInt().coerceIn(16, 6000)
+        val dst = floatArrayOf(0f, 0f, outW.toFloat(), 0f, outW.toFloat(), outH.toFloat(), 0f, outH.toFloat())
+        val m = Matrix()
+        if (!m.setPolyToPoly(p, 0, dst, 0, 4)) return src.copy(Bitmap.Config.ARGB_8888, false)
+        val out = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        val c = Canvas(out)
+        c.drawColor(android.graphics.Color.WHITE)
+        c.drawBitmap(src, m, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        return out
     }
 
     fun writeJpeg(bmp: Bitmap, file: File, quality: Int) {

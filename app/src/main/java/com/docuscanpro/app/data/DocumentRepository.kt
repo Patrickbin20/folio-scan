@@ -8,6 +8,8 @@ import com.docuscanpro.app.data.db.DocumentEntity
 import com.docuscanpro.app.data.db.FolderDao
 import com.docuscanpro.app.data.db.FolderEntity
 import com.docuscanpro.app.imaging.ImageProcessor
+import com.docuscanpro.app.ocr.OcrEngine
+import com.docuscanpro.app.pdf.PdfOps
 import com.docuscanpro.app.pdf.JpegPdfWriter
 import com.docuscanpro.app.pdf.PdfTools
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +56,83 @@ class DocumentRepository(
                 )
             )
         }
+
+    /** Dossier de travail temporaire pour les outils. */
+    fun workFile(ext: String = "pdf"): File =
+        File(context.cacheDir, "work").apply { mkdirs() }.let { File(it, "${UUID.randomUUID()}.$ext") }
+
+    suspend fun get(id: Long): DocumentEntity? = docs.get(id)
+    suspend fun all(): List<DocumentEntity> = docs.all()
+
+    /** Ajoute à la bibliothèque un PDF produit par un outil (fusion, signature, compression…). */
+    suspend fun addPdf(tmp: File, name: String, source: String, folderId: Long? = null): Long = withContext(Dispatchers.IO) {
+        val key = UUID.randomUUID().toString()
+        val pdf = File(docDir, "$key.pdf")
+        tmp.copyTo(pdf, overwrite = true)
+        tmp.delete()
+        val count = PdfTools.pageCount(pdf)
+        val thumb = File(thumbDir, "$key.jpg")
+        val thumbOk = runCatching { PdfTools.renderThumbnail(pdf, thumb) }.isSuccess
+        val now = System.currentTimeMillis()
+        docs.insert(
+            DocumentEntity(
+                name = sanitize(name), filePath = pdf.absolutePath, thumbPath = if (thumbOk) thumb.absolutePath else null,
+                pageCount = count, sizeBytes = pdf.length(), createdAt = now, modifiedAt = now, folderId = folderId, source = source
+            )
+        )
+    }
+
+    /** Remplace le contenu d'un document (même identifiant) par un nouveau fichier. */
+    suspend fun replaceFile(doc: DocumentEntity, tmp: File): DocumentEntity = withContext(Dispatchers.IO) {
+        val pdf = File(doc.filePath)
+        tmp.copyTo(pdf, overwrite = true)
+        tmp.delete()
+        doc.thumbPath?.let { runCatching { PdfTools.renderThumbnail(pdf, File(it)) } }
+        val updated = doc.copy(pageCount = PdfTools.pageCount(pdf), sizeBytes = pdf.length(), modifiedAt = System.currentTimeMillis())
+        docs.update(updated)
+        updated
+    }
+
+    /** Importe un PDF protégé en le déverrouillant avec le mot de passe fourni. */
+    suspend fun importProtectedPdf(uri: Uri, password: String): Long = withContext(Dispatchers.IO) {
+        val src = workFile()
+        val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Lecture du fichier impossible")
+        input.use { i -> src.outputStream().use { o -> i.copyTo(o) } }
+        val out = workFile()
+        try { PdfOps.unlock(src, out, password) } finally { src.delete() }
+        val name = displayName(uri)?.replace(Regex("\\.pdf$", RegexOption.IGNORE_CASE), "") ?: "Document importé"
+        addPdf(out, name, "import")
+    }
+
+    /** Texte du document : texte numérique si présent, sinon reconnaissance OCR page par page. */
+    suspend fun indexText(id: Long, ocr: OcrEngine): String? {
+        val doc = docs.get(id) ?: return null
+        val file = File(doc.filePath)
+        val digital = withContext(Dispatchers.IO) { runCatching { PdfOps.extractText(file) }.getOrDefault(emptyList()) }
+        val pages = if (digital.sumOf { it.length } >= 20 * digital.size.coerceAtLeast(1)) digital else ocrPages(file, ocr).map { it?.text ?: "" }
+        val text = pages.joinToString("\u000C")
+        docs.setOcrText(id, text)
+        return text
+    }
+
+    suspend fun ocrPages(file: File, ocr: OcrEngine): List<OcrEngine.PageText?> {
+        val n = withContext(Dispatchers.IO) { PdfTools.pageCount(file) }
+        return (0 until n).map { i ->
+            val bmp = withContext(Dispatchers.IO) { PdfTools.renderPage(file, i, 1700) }
+            try { runCatching { ocr.recognize(bmp) }.getOrNull() } finally { bmp.recycle() }
+        }
+    }
+
+    /** Ajoute une couche de texte OCR invisible au document (aspect inchangé). */
+    suspend fun makeSearchable(doc: DocumentEntity, ocr: OcrEngine): Int {
+        val file = File(doc.filePath)
+        val pages = ocrPages(file, ocr)
+        val out = workFile()
+        withContext(Dispatchers.IO) { PdfOps.addTextLayer(file, out, pages) }
+        val updated = replaceFile(doc, out)
+        docs.setOcrText(updated.id, pages.joinToString("\u000C") { it?.text ?: "" })
+        return pages.count { it != null && it.lines.isNotEmpty() }
+    }
 
     /** Importe un PDF choisi par l'utilisateur (copie locale). */
     suspend fun importPdf(uri: Uri): Long = withContext(Dispatchers.IO) {

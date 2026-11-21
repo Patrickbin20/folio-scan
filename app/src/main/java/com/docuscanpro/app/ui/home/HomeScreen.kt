@@ -49,6 +49,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.docuscanpro.app.ui.LocalAppActions
+import com.docuscanpro.app.ui.components.TextInputDialog
+import com.docuscanpro.app.ui.tools.DocPickerDialog
+import com.docuscanpro.app.ui.tools.DocTool
+import com.docuscanpro.app.ui.tools.ToolDialogs
+import com.docuscanpro.app.ui.tools.rememberToolController
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.outlined.CallMerge
+import androidx.compose.material.icons.outlined.CallSplit
+import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.docuscanpro.app.ui.components.Avatar
 import com.docuscanpro.app.ui.components.DocumentRow
 import com.docuscanpro.app.ui.components.EmptyState
@@ -65,8 +78,15 @@ fun HomeScreen(
     vm: LibraryViewModel,
     onOpenDocument: (Long) -> Unit,
     onOpenLibrary: (filter: String, focusSearch: Boolean) -> Unit,
-    onOpenProfile: () -> Unit
+    onOpenProfile: () -> Unit,
+    openEdit: (Long, String) -> Unit = { _, _ -> },
+    openPages: (Long) -> Unit = {},
+    openText: (Long) -> Unit = {}
 ) {
+    val ctl = rememberToolController()
+    var pickFor by remember { mutableStateOf<DocTool?>(null) }
+    var mergePick by remember { mutableStateOf(false) }
+    var mergeList by remember { mutableStateOf<List<com.docuscanpro.app.data.db.DocumentEntity>?>(null) }
     val actions = LocalAppActions.current
     val docActions = rememberDocActions(vm)
     val settings by vm.settings.collectAsState()
@@ -142,10 +162,13 @@ fun HomeScreen(
         item {
             SectionHeader("Raccourcis", Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Shortcut(Icons.Outlined.Collections, "Convertir\nen PDF", actions.importImages, Modifier.weight(1f))
-                Shortcut(Icons.Outlined.FolderOpen, "Mes\ndocuments", { onOpenLibrary("all", false) }, Modifier.weight(1f))
-                Shortcut(Icons.Outlined.StarBorder, "Mes\nfavoris", { onOpenLibrary("favorites", false) }, Modifier.weight(1f))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Shortcut(Icons.Outlined.Draw, "Signer un\ndocument", { pickFor = DocTool.SIGN }, Modifier.width(96.dp))
+                Shortcut(Icons.Outlined.CallMerge, "Fusionner\ndes PDF", { mergePick = true }, Modifier.width(96.dp))
+                Shortcut(Icons.Outlined.CallSplit, "Diviser\nun PDF", { pickFor = DocTool.PAGES }, Modifier.width(96.dp))
+                Shortcut(Icons.Outlined.Collections, "Convertir\nen PDF", actions.importImages, Modifier.width(96.dp))
+                Shortcut(Icons.Outlined.FolderOpen, "Mes\ndocuments", { onOpenLibrary("all", false) }, Modifier.width(96.dp))
+                Shortcut(Icons.Outlined.StarBorder, "Mes\nfavoris", { onOpenLibrary("favorites", false) }, Modifier.width(96.dp))
             }
         }
         item {
@@ -163,6 +186,19 @@ fun HomeScreen(
             }
         }
     }
+
+    pickFor?.let { tool ->
+        DocPickerDialog("Choisir un document", vm, multi = false, confirmLabel = "", onDismiss = { pickFor = null }) { list ->
+            pickFor = null; list.firstOrNull()?.let { ctl.run(tool, it) }
+        }
+    }
+    if (mergePick) {
+        DocPickerDialog("Fusionner des PDF", vm, multi = true, confirmLabel = "Fusionner", onDismiss = { mergePick = false }) { list -> mergePick = false; mergeList = list }
+    }
+    mergeList?.let { list ->
+        TextInputDialog("Nom du PDF fusionné", "${list.first().name} (fusion)", "Fusionner", { mergeList = null }) { name -> mergeList = null; vm.merge(list, name, onOpenDocument) }
+    }
+    ToolDialogs(ctl, vm, onOpenDocument, openEdit, openPages, openText)
 }
 
 @Composable

@@ -1,0 +1,103 @@
+package com.docuscanpro.app.imaging
+
+import android.graphics.Bitmap
+import kotlin.math.max
+import kotlin.math.roundToInt
+
+/**
+ * Détection automatique des bords d'un document (feuille claire sur fond plus sombre).
+ * Seuil d'Otsu → plus grande zone claire connexe → 4 coins extrêmes.
+ * Renvoie 8 valeurs normalisées (HG, HD, BD, BG) ou null si rien de fiable.
+ */
+object DocDetector {
+
+    fun detect(src: Bitmap): FloatArray? {
+        val scale = 320f / max(src.width, src.height)
+        val w = max(8, (src.width * scale).roundToInt())
+        val h = max(8, (src.height * scale).roundToInt())
+        val small = Bitmap.createScaledBitmap(src, w, h, true)
+        val px = IntArray(w * h)
+        small.getPixels(px, 0, w, 0, 0, w, h)
+        if (small != src) small.recycle()
+
+        // Niveaux de gris + flou 3x3
+        val g = IntArray(w * h) { i -> val c = px[i]; ((c shr 16 and 255) * 77 + (c shr 8 and 255) * 150 + (c and 255) * 29) shr 8 }
+        val b = IntArray(w * h)
+        for (y in 0 until h) for (x in 0 until w) {
+            var s = 0; var n = 0
+            for (dy in -1..1) for (dx in -1..1) {
+                val xx = x + dx; val yy = y + dy
+                if (xx in 0 until w && yy in 0 until h) { s += g[yy * w + xx]; n++ }
+            }
+            b[y * w + x] = s / n
+        }
+
+        // Seuil d'Otsu
+        val hist = IntArray(256); b.forEach { hist[it]++ }
+        val total = w * h
+        var sum = 0.0; for (i in 0..255) sum += i * hist[i].toDouble()
+        var sumB = 0.0; var wB = 0; var best = 0.0; var thr = 128
+        for (t in 0..255) {
+            wB += hist[t]; if (wB == 0) continue
+            val wF = total - wB; if (wF == 0) break
+            sumB += t * hist[t].toDouble()
+            val mB = sumB / wB; val mF = (sum - sumB) / wF
+            val between = wB.toDouble() * wF * (mB - mF) * (mB - mF)
+            if (between > best) { best = between; thr = t }
+        }
+
+        // Plus grande composante claire (4-connexité)
+        val label = IntArray(total)
+        val queue = IntArray(total)
+        var bestLabel = 0; var bestSize = 0; var cur = 0
+        for (start in 0 until total) {
+            if (b[start] <= thr || label[start] != 0) continue
+            cur++
+            var head = 0; var tail = 0
+            queue[tail++] = start; label[start] = cur
+            var size = 0
+            while (head < tail) {
+                val i = queue[head++]; size++
+                val x = i % w; val y = i / w
+                if (x > 0) { val j = i - 1; if (label[j] == 0 && b[j] > thr) { label[j] = cur; queue[tail++] = j } }
+                if (x < w - 1) { val j = i + 1; if (label[j] == 0 && b[j] > thr) { label[j] = cur; queue[tail++] = j } }
+                if (y > 0) { val j = i - w; if (label[j] == 0 && b[j] > thr) { label[j] = cur; queue[tail++] = j } }
+                if (y < h - 1) { val j = i + w; if (label[j] == 0 && b[j] > thr) { label[j] = cur; queue[tail++] = j } }
+            }
+            if (size > bestSize) { bestSize = size; bestLabel = cur }
+        }
+        val ratio = bestSize.toFloat() / total
+        if (bestLabel == 0 || ratio < 0.12f || ratio > 0.97f) return null
+
+        // Coins extrêmes de la zone
+        var tl = Int.MAX_VALUE; var br = Int.MIN_VALUE; var tr = Int.MIN_VALUE; var bl = Int.MAX_VALUE
+        var tlI = 0; var brI = 0; var trI = 0; var blI = 0
+        for (i in 0 until total) {
+            if (label[i] != bestLabel) continue
+            val x = i % w; val y = i / w
+            val s = x + y; val d = x - y
+            if (s < tl) { tl = s; tlI = i }
+            if (s > br) { br = s; brI = i }
+            if (d > tr) { tr = d; trI = i }
+            if (d < bl) { bl = d; blI = i }
+        }
+        fun nx(i: Int) = ((i % w) + 0.5f) / w
+        fun ny(i: Int) = ((i / w) + 0.5f) / h
+        val q = floatArrayOf(nx(tlI), ny(tlI), nx(trI), ny(trI), nx(brI), ny(brI), nx(blI), ny(blI))
+        // Garde-fou : quadrilatère trop petit ou dégénéré
+        val area = 0.5f * kotlin.math.abs(
+            (q[0] * q[3] - q[2] * q[1]) + (q[2] * q[5] - q[4] * q[3]) + (q[4] * q[7] - q[6] * q[5]) + (q[6] * q[1] - q[0] * q[7])
+        )
+        return if (area < 0.1f) null else q
+    }
+
+    /** Coins quand la page est pivotée de 90° dans le sens horaire. */
+    fun rotateQuad90(q: FloatArray): FloatArray {
+        // (x, y) → (1 - y, x) ; l'ancien bas-gauche devient le haut-gauche
+        fun p(i: Int) = floatArrayOf(1f - q[2 * i + 1], q[2 * i])
+        val bl = p(3); val tl = p(0); val tr = p(1); val br = p(2)
+        return floatArrayOf(bl[0], bl[1], tl[0], tl[1], tr[0], tr[1], br[0], br[1])
+    }
+
+    val FULL = floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f)
+}

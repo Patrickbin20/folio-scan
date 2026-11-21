@@ -38,6 +38,37 @@ class ExportManager(private val context: Context) {
         files.size
     }
 
+    /** Copie un fichier vers une destination choisie par l'utilisateur. */
+    suspend fun writeTo(file: File, target: Uri) = withContext(Dispatchers.IO) {
+        val out = context.contentResolver.openOutputStream(target) ?: throw IOException("Écriture impossible")
+        out.use { o -> file.inputStream().use { it.copyTo(o) } }
+    }
+
+    /** Intention de partage d'un fichier quelconque (PDF protégé, Word, texte…). */
+    suspend fun shareFileIntent(file: File, displayName: String, mime: String): Intent = withContext(Dispatchers.IO) {
+        val dir = shareDir()
+        val f = File(dir, displayName)
+        file.copyTo(f, overwrite = true)
+        val i = Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uriFor(f))
+            .putExtra(Intent.EXTRA_SUBJECT, displayName).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        Intent.createChooser(i, "Partager « $displayName »").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    /** Sauvegarde : copie tous les PDF dans le dossier choisi. */
+    suspend fun backup(docs: List<DocumentEntity>, tree: Uri): Int = withContext(Dispatchers.IO) {
+        val cr = context.contentResolver
+        val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        var n = 0
+        docs.forEach { d ->
+            val src = File(d.filePath)
+            if (!src.exists()) return@forEach
+            val uri = DocumentsContract.createDocument(cr, parent, "application/pdf", "${d.name}.pdf") ?: return@forEach
+            cr.openOutputStream(uri)?.use { o -> src.inputStream().use { it.copyTo(o) } }
+            n++
+        }
+        n
+    }
+
     suspend fun shareIntent(doc: DocumentEntity, format: ExportFormat): Intent = withContext(Dispatchers.IO) {
         val dir = shareDir()
         val intent = if (format == ExportFormat.PDF) {

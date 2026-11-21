@@ -30,6 +30,11 @@ object PdfTools {
         }
     }
 
+    fun renderPage(pdf: File, index: Int, width: Int): Bitmap =
+        ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+            PdfRenderer(pfd).use { r -> renderPage(r, index, width) }
+        }
+
     fun renderThumbnail(pdf: File, out: File) {
         ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
             PdfRenderer(pfd).use { r ->

@@ -18,8 +18,10 @@ data class DocumentEntity(
     val lastOpenedAt: Long? = null,
     val favorite: Boolean = false,
     val folderId: Long? = null,
-    /** scan | images | import */
-    val source: String = "scan"
+    /** scan | images | import | idcard | tool */
+    val source: String = "scan",
+    /** Texte reconnu (OCR) ou extrait, pages séparées par \u000C — sert à la recherche */
+    val ocrText: String? = null
 )
 
 @Entity(tableName = "folders")

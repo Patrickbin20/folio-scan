@@ -85,12 +85,39 @@ import com.docuscanpro.app.ui.components.pagesLabel
 import com.docuscanpro.app.ui.components.formatSize
 import com.docuscanpro.app.ui.components.rememberDocActions
 import com.docuscanpro.app.ui.state.LibraryViewModel
+import com.docuscanpro.app.data.db.DocumentEntity
+import com.docuscanpro.app.ui.tools.DocTool
+import com.docuscanpro.app.ui.tools.ToolDialogs
+import com.docuscanpro.app.ui.tools.rememberToolController
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
+import androidx.compose.material.icons.outlined.BorderColor
+import androidx.compose.material.icons.outlined.Compress
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Print
+import androidx.compose.material.icons.outlined.Reorder
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material.icons.outlined.WaterDrop
 import kotlinx.coroutines.launch
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ViewerScreen(id: Long, vm: LibraryViewModel, onBack: () -> Unit) {
+fun ViewerScreen(
+    id: Long, vm: LibraryViewModel, onBack: () -> Unit,
+    openViewer: (Long) -> Unit, openEdit: (Long, String) -> Unit, openPages: (Long) -> Unit, openText: (Long) -> Unit
+) {
+    val ctl = rememberToolController()
+    var searching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val docFlow = remember(id) { vm.observeDocument(id) }
     val doc by docFlow.collectAsState(initial = null)
     val folders by vm.folders.collectAsState()
@@ -122,10 +149,22 @@ fun ViewerScreen(id: Long, vm: LibraryViewModel, onBack: () -> Unit) {
                         IconButton(onClick = { vm.setFavorite(d, !d.favorite) }) {
                             Icon(if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder, "Favori", tint = if (d.favorite) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface)
                         }
+                        IconButton(onClick = { searching = !searching }) { Icon(Icons.Outlined.Search, "Rechercher") }
                         IconButton(onClick = { actions.share(d, null) }) { Icon(Icons.Outlined.Share, "Partager") }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "Plus") }
                             DropdownMenu(menu, { menu = false }, shape = RoundedCornerShape(16.dp)) {
+                                DropdownMenuItem(text = { Text("Signer") }, leadingIcon = { Icon(Icons.Outlined.Draw, null) }, onClick = { menu = false; ctl.run(DocTool.SIGN, d) })
+                                DropdownMenuItem(text = { Text("Annoter / surligner") }, leadingIcon = { Icon(Icons.Outlined.BorderColor, null) }, onClick = { menu = false; ctl.run(DocTool.ANNOTATE, d) })
+                                DropdownMenuItem(text = { Text("Pages : organiser, extraire, diviser") }, leadingIcon = { Icon(Icons.Outlined.Reorder, null) }, onClick = { menu = false; ctl.run(DocTool.PAGES, d) })
+                                DropdownMenuItem(text = { Text("Texte (OCR)") }, leadingIcon = { Icon(Icons.Outlined.TextSnippet, null) }, onClick = { menu = false; ctl.run(DocTool.TEXT, d) })
+                                DropdownMenuItem(text = { Text("Convertir en Word") }, leadingIcon = { Icon(Icons.Outlined.Description, null) }, onClick = { menu = false; ctl.run(DocTool.DOCX, d) })
+                                DropdownMenuItem(text = { Text("Compresser") }, leadingIcon = { Icon(Icons.Outlined.Compress, null) }, onClick = { menu = false; ctl.run(DocTool.COMPRESS, d) })
+                                DropdownMenuItem(text = { Text("Filigrane") }, leadingIcon = { Icon(Icons.Outlined.WaterDrop, null) }, onClick = { menu = false; ctl.run(DocTool.WATERMARK, d) })
+                                DropdownMenuItem(text = { Text("Protéger par mot de passe") }, leadingIcon = { Icon(Icons.Outlined.Lock, null) }, onClick = { menu = false; ctl.run(DocTool.PROTECT, d) })
+                                DropdownMenuItem(text = { Text("Collage (plusieurs pages par feuille)") }, leadingIcon = { Icon(Icons.Outlined.AutoAwesomeMosaic, null) }, onClick = { menu = false; ctl.run(DocTool.COLLAGE, d) })
+                                DropdownMenuItem(text = { Text("Imprimer") }, leadingIcon = { Icon(Icons.Outlined.Print, null) }, onClick = { menu = false; ctl.run(DocTool.PRINT, d) })
+                                HorizontalDivider()
                                 DropdownMenuItem(text = { Text("Exporter en PDF") }, leadingIcon = { Icon(Icons.Outlined.PictureAsPdf, null) }, onClick = { menu = false; actions.export(d, ExportFormat.PDF) })
                                 DropdownMenuItem(text = { Text("Exporter en JPEG") }, leadingIcon = { Icon(Icons.Outlined.Image, null) }, onClick = { menu = false; actions.export(d, ExportFormat.JPEG) })
                                 DropdownMenuItem(text = { Text("Partager en JPEG") }, leadingIcon = { Icon(Icons.Outlined.Share, null) }, onClick = { menu = false; actions.share(d, ExportFormat.JPEG) })
@@ -142,12 +181,18 @@ fun ViewerScreen(id: Long, vm: LibraryViewModel, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surfaceContainer)) {
-            val res = session
-            when {
-                res == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                res.isFailure -> EmptyState(Icons.Outlined.ErrorOutline, "Impossible d'ouvrir le PDF", "Le fichier est peut-être protégé ou endommagé.", Modifier.align(Alignment.Center))
-                else -> PdfPages(res.getOrThrow())
+        Column(Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surfaceContainer)) {
+            val d0 = doc
+            if (searching && d0 != null) {
+                SearchBarInDoc(d0, query, { query = it }, onAnalyze = { vm.indexNow(d0) }) { page -> scope.launch { listState.animateScrollToItem(page) } }
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                val res = session
+                when {
+                    res == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    res.isFailure -> EmptyState(Icons.Outlined.ErrorOutline, "Impossible d'ouvrir le PDF", "Le fichier est peut-être protégé ou endommagé.", Modifier.align(Alignment.Center))
+                    else -> PdfPages(res.getOrThrow(), listState)
+                }
             }
         }
     }
@@ -162,12 +207,44 @@ fun ViewerScreen(id: Long, vm: LibraryViewModel, onBack: () -> Unit) {
         }
     }
     LaunchedEffect(doc, deleted) { if (doc == null && deleted) onBack() }
+    ToolDialogs(ctl, vm, openViewer, openEdit, openPages, openText)
+}
+
+private fun normText(s: String) = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase()
+
+/** Recherche de mots dans le texte du document (OCR ou texte numérique). */
+@Composable
+private fun SearchBarInDoc(doc: DocumentEntity, query: String, onQuery: (String) -> Unit, onAnalyze: () -> Unit, onJump: (Int) -> Unit) {
+    val pages = doc.ocrText?.split('\u000C')
+    val q = normText(query.trim())
+    val hits = if (pages == null || q.length < 2) emptyList() else pages.mapIndexedNotNull { i, t ->
+        val n = Regex(Regex.escape(q)).findAll(normText(t)).count(); if (n > 0) i to n else null
+    }
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 12.dp, vertical = 8.dp)) {
+        if (pages == null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Le texte de ce document n'a pas encore été analysé.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                TextButton(onClick = onAnalyze) { Text("Analyser") }
+            }
+        } else {
+            OutlinedTextField(query, onQuery, singleLine = true, placeholder = { Text("Rechercher dans le document") },
+                leadingIcon = { Icon(Icons.Outlined.Search, null) }, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
+            if (q.length >= 2) {
+                if (hits.isEmpty()) Text("Aucun résultat", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                else LazyRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(hits.size) { k ->
+                        val (page, n) = hits[k]
+                        AssistChip(onClick = { onJump(page) }, label = { Text("Page ${page + 1} · $n") })
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** Pages du PDF : défilement vertical, zoom à deux doigts, double-tap, miniatures. */
 @Composable
-private fun PdfPages(session: PdfSession) {
-    val listState = rememberLazyListState()
+private fun PdfPages(session: PdfSession, listState: androidx.compose.foundation.lazy.LazyListState) {
     val scope = rememberCoroutineScope()
     var scale by remember { mutableFloatStateOf(1f) }
     var offsetX by remember { mutableFloatStateOf(0f) }

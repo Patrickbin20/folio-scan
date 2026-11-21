@@ -97,7 +97,7 @@ fun DocumentsScreen(vm: LibraryViewModel, initialFilter: String, focusSearch: Bo
                 else -> true
             }
         }
-        .filter { q.isEmpty() || norm(it.name).contains(q) }
+        .filter { q.isEmpty() || norm(it.name).contains(q) || (it.ocrText?.let { t -> norm(t).contains(q) } ?: false) }
         .let { list ->
             when {
                 filter == "recent" -> list.sortedByDescending { it.lastOpenedAt }
@@ -126,7 +126,7 @@ fun DocumentsScreen(vm: LibraryViewModel, initialFilter: String, focusSearch: Bo
         }
         OutlinedTextField(
             value = query, onValueChange = { query = it }, singleLine = true,
-            placeholder = { Text("Rechercher par nom") },
+            placeholder = { Text("Rechercher par nom ou contenu") },
             leadingIcon = { Icon(Icons.Outlined.Search, null) },
             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, "Effacer") } },
             shape = RoundedCornerShape(16.dp),

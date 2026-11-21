@@ -5,8 +5,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 /** Actions globales accessibles depuis tous les écrans (scanner, imports). */
 class AppActions(
     val scan: () -> Unit,
+    val scanIdCard: () -> Unit,
     val importImages: () -> Unit,
     val importPdf: () -> Unit
 )
 
-val LocalAppActions = staticCompositionLocalOf { AppActions({}, {}, {}) }
+val LocalAppActions = staticCompositionLocalOf { AppActions({}, {}, {}, {}) }
