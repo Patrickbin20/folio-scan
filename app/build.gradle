@@ -19,7 +19,7 @@ android {
         versionName "1.0.${runNumber}"
     }
 
-    // Clé fournie par les secrets GitHub (jamais stockée dans le dépôt)
+    // Clé permanente fournie par les secrets GitHub (jamais stockée dans le dépôt)
     signingConfigs {
         release {
             storeFile file(System.getenv('FOLIO_KEYSTORE_PATH') ?: 'release.jks')
