@@ -27,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.CallMerge
 import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Collections
@@ -80,34 +82,33 @@ fun ToolsScreen(
     var mergePick by remember { mutableStateOf(false) }
     var mergeList by remember { mutableStateOf<List<DocumentEntity>?>(null) }
 
+    var showMore by remember { mutableStateOf(false) }
+    val essentials = listOf(
+        ToolItem(Icons.Outlined.DocumentScanner, "Scanner", "Bords et perspective corrigés", a.scan),
+        ToolItem(Icons.Outlined.Draw, "Signer", "Signature, initiales, date", { pickFor = DocTool.SIGN }),
+        ToolItem(Icons.Outlined.CallMerge, "Fusionner", "Plusieurs PDF en un", { mergePick = true }),
+        ToolItem(Icons.Outlined.CallSplit, "Diviser et organiser", "Pages, ordre, rotation", { pickFor = DocTool.PAGES }),
+        ToolItem(Icons.Outlined.Compress, "Compresser", "Réduire la taille", { pickFor = DocTool.COMPRESS }),
+        ToolItem(Icons.Outlined.TextSnippet, "Extraire le texte", "Copier, partager, Word", { pickFor = DocTool.TEXT })
+    )
     val sections = listOf(
-        "Numériser" to listOf(
-            ToolItem(Icons.Outlined.DocumentScanner, "Scanner", "Bords, perspective, capture auto", a.scan),
+        "Numériser et importer" to listOf(
             ToolItem(Icons.Outlined.Badge, "Carte d'identité", "Recto + verso sur une page A4", a.scanIdCard),
             ToolItem(Icons.Outlined.Collections, "Images en PDF", "JPG / PNG → un seul PDF", a.importImages),
             ToolItem(Icons.Outlined.PictureAsPdf, "Importer un PDF", "Y compris protégé par mot de passe", a.importPdf)
         ),
-        "Signer et annoter" to listOf(
-            ToolItem(Icons.Outlined.Draw, "Signer", "Signature, initiales, date", { pickFor = DocTool.SIGN }),
-            ToolItem(Icons.Outlined.BorderColor, "Annoter", "Stylo, surligneur, texte", { pickFor = DocTool.ANNOTATE }),
+        "Annoter" to listOf(
+            ToolItem(Icons.Outlined.BorderColor, "Annoter et surligner", "Stylo, surligneur, texte", { pickFor = DocTool.ANNOTATE }),
             ToolItem(Icons.Outlined.Gesture, "Mes signatures", "Créer, importer, gérer", openSignatures)
         ),
-        "Organiser" to listOf(
-            ToolItem(Icons.Outlined.CallMerge, "Fusionner", "Plusieurs PDF en un", { mergePick = true }),
-            ToolItem(Icons.Outlined.CallSplit, "Diviser / extraire", "Par plages ou sélection", { pickFor = DocTool.PAGES }),
-            ToolItem(Icons.Outlined.Reorder, "Organiser les pages", "Ordre, rotation, suppression", { pickFor = DocTool.PAGES }),
-            ToolItem(Icons.Outlined.AutoAwesomeMosaic, "Collage", "2 ou 4 pages par feuille", { pickFor = DocTool.COLLAGE })
-        ),
-        "Optimiser et protéger" to listOf(
-            ToolItem(Icons.Outlined.Compress, "Compresser", "Réduire la taille du PDF", { pickFor = DocTool.COMPRESS }),
+        "Protéger" to listOf(
             ToolItem(Icons.Outlined.WaterDrop, "Filigrane", "Texte en diagonale", { pickFor = DocTool.WATERMARK }),
-            ToolItem(Icons.Outlined.Lock, "Mot de passe", "Protéger avant envoi", { pickFor = DocTool.PROTECT }),
-            ToolItem(Icons.Outlined.LockOpen, "Déverrouiller", "Importer un PDF protégé", a.importPdf)
+            ToolItem(Icons.Outlined.Lock, "Mot de passe", "Protéger avant envoi", { pickFor = DocTool.PROTECT })
         ),
-        "Texte et conversion" to listOf(
-            ToolItem(Icons.Outlined.TextSnippet, "Extraire le texte", "OCR : copier, partager", { pickFor = DocTool.TEXT }),
+        "Convertir" to listOf(
             ToolItem(Icons.Outlined.Description, "PDF en Word", "Texte reconnu → .docx", { pickFor = DocTool.DOCX }),
             ToolItem(Icons.Outlined.ManageSearch, "PDF sélectionnable", "Ajoute une couche de texte", { pickFor = DocTool.SEARCHABLE }),
+            ToolItem(Icons.Outlined.AutoAwesomeMosaic, "Plusieurs pages par feuille", "2 ou 4 pages", { pickFor = DocTool.COLLAGE }),
             ToolItem(Icons.Outlined.Language, "Page web en PDF", "Via l'impression Android", openWeb),
             ToolItem(Icons.Outlined.Print, "Imprimer", "Imprimante ou PDF", { pickFor = DocTool.PRINT })
         )
@@ -119,24 +120,17 @@ fun ToolsScreen(
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         item { Text("Outils", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.height(44.dp).padding(top = 4.dp)) }
-        sections.forEach { (title, tools) ->
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(title.uppercase(), style = com.docuscanpro.app.ui.theme.SectionTitle, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
-                    androidx.compose.material3.Surface(
-                        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column {
-                            tools.forEachIndexed { i, t ->
-                                if (i > 0) androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                ToolRow(t)
-                            }
-                        }
-                    }
-                }
+        item { ToolGroup(null, essentials) }
+        item {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showMore = !showMore }.padding(horizontal = 4.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(if (showMore) "Moins d'outils" else "Plus d'outils", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.weight(1f))
+                Icon(if (showMore) androidx.compose.material.icons.Icons.Outlined.ExpandLess else androidx.compose.material.icons.Icons.Outlined.ExpandMore, null, tint = MaterialTheme.colorScheme.secondary)
             }
         }
+        if (showMore) sections.forEach { (title, tools) -> item { ToolGroup(title, tools) } }
         item {
             Text("La reconnaissance de texte fonctionne hors-ligne pour l'alphabet latin (français, anglais, espagnol…). L'arabe n'est pas encore pris en charge.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -159,6 +153,24 @@ fun ToolsScreen(
         }
     }
     ToolDialogs(ctl, vm, openViewer, openEdit, openPages, openText)
+}
+
+@Composable
+private fun ToolGroup(title: String?, tools: List<ToolItem>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (title != null) Text(title.uppercase(), style = com.docuscanpro.app.ui.theme.SectionTitle, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
+        androidx.compose.material3.Surface(
+            shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                tools.forEachIndexed { i, t ->
+                    if (i > 0) androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ToolRow(t)
+                }
+            }
+        }
+    }
 }
 
 @Composable

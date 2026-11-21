@@ -252,28 +252,38 @@ fun PdfEditScreen(id: Long, mode: String, vm: LibraryViewModel, onBack: () -> Un
                     } else if (st.tool != EditTool.MOVE) {
                         val colors = if (st.tool == EditTool.PEN) listOf(Color(0xFF14235F), Color(0xFF111111), Color(0xFFD93025), Color(0xFF1E5BFF))
                         else listOf(Color(0xFFFFD60A), Color(0xFF7CFC8A), Color(0xFFFF8AD8), Color(0xFF7FD3FF))
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (st.tool == EditTool.PEN) "Stylo" else "Surligneur", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.FilterChip(selected = st.tool == EditTool.PEN, onClick = { st.tool = EditTool.PEN }, label = { Text("Stylo") })
+                            Spacer(Modifier.width(6.dp))
+                            androidx.compose.material3.FilterChip(selected = st.tool == EditTool.HIGHLIGHT, onClick = { st.tool = EditTool.HIGHLIGHT }, label = { Text("Surligneur") })
+                            Spacer(Modifier.weight(1f))
                             colors.forEach { c ->
                                 val cur = if (st.tool == EditTool.PEN) st.penColor else st.hlColor
-                                Box(Modifier.padding(start = 10.dp).size(30.dp).clip(CircleShape).background(c)
+                                Box(Modifier.padding(start = 8.dp).size(26.dp).clip(CircleShape).background(c)
                                     .border(if (c == cur) 3.dp else 0.dp, MaterialTheme.colorScheme.secondary, CircleShape)
                                     .clickable { if (st.tool == EditTool.PEN) st.penColor = c else st.hlColor = c })
                             }
                         }
+                        TextButton(onClick = { st.tool = EditTool.MOVE }, modifier = Modifier.align(Alignment.End).padding(end = 8.dp)) { Text("Terminé") }
                     }
-                    LazyRow(contentPadding = PaddingValues(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        item { ToolButton(Icons.Outlined.OpenWith, "Déplacer", st.tool == EditTool.MOVE) { st.tool = EditTool.MOVE } }
-                        item { ToolButton(Icons.Outlined.Draw, "Signature", false) { dialog = "signature" } }
-                        item { ToolButton(Icons.Outlined.Title, "Initiales", false) { dialog = "initials" } }
-                        item { ToolButton(Icons.Outlined.Event, "Date", false) {
-                            val date = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE).format(Date())
-                            st.add(SignatureStore.renderText(date, Color(0xFF111111).toArgb(), Typeface.DEFAULT, 90f), 0.2f, 0.8f)
-                        } }
-                        item { ToolButton(Icons.Outlined.TextFields, "Texte", false) { dialog = "text" } }
-                        item { ToolButton(Icons.Outlined.Edit, "Stylo", st.tool == EditTool.PEN) { st.tool = EditTool.PEN; st.selected = null } }
-                        item { ToolButton(Icons.Outlined.BorderColor, "Surligner", st.tool == EditTool.HIGHLIGHT) { st.tool = EditTool.HIGHLIGHT; st.selected = null } }
-                        item { ToolButton(Icons.AutoMirrored.Outlined.Undo, "Annuler", false, enabled = st.hasChanges) { st.undo() } }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        ToolButton(Icons.Outlined.Draw, "Signature", false) { dialog = "signature" }
+                        Box {
+                            ToolButton(Icons.Outlined.TextFields, "Texte", false) { dialog = "textmenu" }
+                            androidx.compose.material3.DropdownMenu(expanded = dialog == "textmenu", onDismissRequest = { dialog = null }, shape = RoundedCornerShape(14.dp)) {
+                                androidx.compose.material3.DropdownMenuItem(text = { Text("Texte libre") }, leadingIcon = { Icon(Icons.Outlined.TextFields, null) }, onClick = { dialog = "text" })
+                                androidx.compose.material3.DropdownMenuItem(text = { Text("Initiales") }, leadingIcon = { Icon(Icons.Outlined.Title, null) }, onClick = { dialog = "initials" })
+                                androidx.compose.material3.DropdownMenuItem(text = { Text("Date du jour") }, leadingIcon = { Icon(Icons.Outlined.Event, null) }, onClick = {
+                                    dialog = null
+                                    val date = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE).format(Date())
+                                    st.add(SignatureStore.renderText(date, Color(0xFF111111).toArgb(), Typeface.DEFAULT, 90f), 0.2f, 0.8f)
+                                })
+                            }
+                        }
+                        ToolButton(Icons.Outlined.Edit, "Dessiner", st.tool != EditTool.MOVE) {
+                            st.tool = if (st.tool == EditTool.MOVE) EditTool.PEN else EditTool.MOVE; st.selected = null
+                        }
+                        ToolButton(Icons.AutoMirrored.Outlined.Undo, "Annuler", false, enabled = st.hasChanges) { st.undo() }
                     }
                 }
             }

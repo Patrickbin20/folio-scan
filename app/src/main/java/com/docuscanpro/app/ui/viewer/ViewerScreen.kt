@@ -47,6 +47,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -146,39 +151,30 @@ fun ViewerScreen(
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Retour") } },
                 actions = {
                     doc?.let { d ->
-                        IconButton(onClick = { vm.setFavorite(d, !d.favorite) }) {
-                            Icon(if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder, "Favori", tint = if (d.favorite) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface)
-                        }
                         IconButton(onClick = { searching = !searching }) { Icon(Icons.Outlined.Search, "Rechercher") }
-                        IconButton(onClick = { actions.share(d, null) }) { Icon(Icons.Outlined.Share, "Partager") }
-                        Box {
-                            IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "Plus") }
-                            DropdownMenu(menu, { menu = false }, shape = RoundedCornerShape(16.dp)) {
-                                DropdownMenuItem(text = { Text("Signer") }, leadingIcon = { Icon(Icons.Outlined.Draw, null) }, onClick = { menu = false; ctl.run(DocTool.SIGN, d) })
-                                DropdownMenuItem(text = { Text("Annoter / surligner") }, leadingIcon = { Icon(Icons.Outlined.BorderColor, null) }, onClick = { menu = false; ctl.run(DocTool.ANNOTATE, d) })
-                                DropdownMenuItem(text = { Text("Pages : organiser, extraire, diviser") }, leadingIcon = { Icon(Icons.Outlined.Reorder, null) }, onClick = { menu = false; ctl.run(DocTool.PAGES, d) })
-                                DropdownMenuItem(text = { Text("Texte (OCR)") }, leadingIcon = { Icon(Icons.Outlined.TextSnippet, null) }, onClick = { menu = false; ctl.run(DocTool.TEXT, d) })
-                                DropdownMenuItem(text = { Text("Convertir en Word") }, leadingIcon = { Icon(Icons.Outlined.Description, null) }, onClick = { menu = false; ctl.run(DocTool.DOCX, d) })
-                                DropdownMenuItem(text = { Text("Compresser") }, leadingIcon = { Icon(Icons.Outlined.Compress, null) }, onClick = { menu = false; ctl.run(DocTool.COMPRESS, d) })
-                                DropdownMenuItem(text = { Text("Filigrane") }, leadingIcon = { Icon(Icons.Outlined.WaterDrop, null) }, onClick = { menu = false; ctl.run(DocTool.WATERMARK, d) })
-                                DropdownMenuItem(text = { Text("Protéger par mot de passe") }, leadingIcon = { Icon(Icons.Outlined.Lock, null) }, onClick = { menu = false; ctl.run(DocTool.PROTECT, d) })
-                                DropdownMenuItem(text = { Text("Collage (plusieurs pages par feuille)") }, leadingIcon = { Icon(Icons.Outlined.AutoAwesomeMosaic, null) }, onClick = { menu = false; ctl.run(DocTool.COLLAGE, d) })
-                                DropdownMenuItem(text = { Text("Imprimer") }, leadingIcon = { Icon(Icons.Outlined.Print, null) }, onClick = { menu = false; ctl.run(DocTool.PRINT, d) })
-                                HorizontalDivider()
-                                DropdownMenuItem(text = { Text("Exporter en PDF") }, leadingIcon = { Icon(Icons.Outlined.PictureAsPdf, null) }, onClick = { menu = false; actions.export(d, ExportFormat.PDF) })
-                                DropdownMenuItem(text = { Text("Exporter en JPEG") }, leadingIcon = { Icon(Icons.Outlined.Image, null) }, onClick = { menu = false; actions.export(d, ExportFormat.JPEG) })
-                                DropdownMenuItem(text = { Text("Partager en JPEG") }, leadingIcon = { Icon(Icons.Outlined.Share, null) }, onClick = { menu = false; actions.share(d, ExportFormat.JPEG) })
-                                HorizontalDivider()
-                                DropdownMenuItem(text = { Text("Renommer") }, leadingIcon = { Icon(Icons.Outlined.Edit, null) }, onClick = { menu = false; dialog = "rename" })
-                                DropdownMenuItem(text = { Text("Déplacer vers un dossier") }, leadingIcon = { Icon(Icons.Outlined.DriveFileMove, null) }, onClick = { menu = false; dialog = "move" })
-                                DropdownMenuItem(text = { Text("Dupliquer") }, leadingIcon = { Icon(Icons.Outlined.ContentCopy, null) }, onClick = { menu = false; vm.duplicate(d) })
-                                DropdownMenuItem(text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "delete" })
-                            }
+                        IconButton(onClick = { vm.setFavorite(d, !d.favorite) }) {
+                            Icon(if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder, "Favori", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
+        }
+        ,
+        bottomBar = {
+            doc?.let { d ->
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+                    Column {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                        Row(Modifier.fillMaxWidth().navigationBarsPadding().height(64.dp), verticalAlignment = Alignment.CenterVertically) {
+                            BarAction(Icons.Outlined.Share, "Partager", Modifier.weight(1f)) { actions.share(d, null) }
+                            BarAction(Icons.Outlined.Draw, "Signer", Modifier.weight(1f)) { ctl.run(DocTool.SIGN, d) }
+                            BarAction(Icons.Outlined.BorderColor, "Annoter", Modifier.weight(1f)) { ctl.run(DocTool.ANNOTATE, d) }
+                            BarAction(Icons.Outlined.MoreHoriz, "Plus", Modifier.weight(1f)) { menu = true }
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surfaceContainer)) {
@@ -207,7 +203,55 @@ fun ViewerScreen(
         }
     }
     LaunchedEffect(doc, deleted) { if (doc == null && deleted) onBack() }
+    val dd = doc
+    if (menu && dd != null) {
+        ModalBottomSheet(onDismissRequest = { menu = false }, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
+            val go: (() -> Unit) -> () -> Unit = { f -> { menu = false; f() } }
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+                SheetGroup("Pages et texte")
+                SheetRow(Icons.Outlined.Reorder, "Organiser, extraire, diviser", go { ctl.run(DocTool.PAGES, dd) })
+                SheetRow(Icons.Outlined.TextSnippet, "Texte du document (OCR)", go { ctl.run(DocTool.TEXT, dd) })
+                SheetRow(Icons.Outlined.Description, "Convertir en Word", go { ctl.run(DocTool.DOCX, dd) })
+                SheetGroup("Optimiser et protéger")
+                SheetRow(Icons.Outlined.Compress, "Compresser", go { ctl.run(DocTool.COMPRESS, dd) })
+                SheetRow(Icons.Outlined.WaterDrop, "Filigrane", go { ctl.run(DocTool.WATERMARK, dd) })
+                SheetRow(Icons.Outlined.Lock, "Protéger par mot de passe", go { ctl.run(DocTool.PROTECT, dd) })
+                SheetRow(Icons.Outlined.AutoAwesomeMosaic, "Plusieurs pages par feuille", go { ctl.run(DocTool.COLLAGE, dd) })
+                SheetGroup("Fichier")
+                SheetRow(Icons.Outlined.PictureAsPdf, "Exporter en PDF", go { actions.export(dd, ExportFormat.PDF) })
+                SheetRow(Icons.Outlined.Image, "Exporter en images JPEG", go { actions.export(dd, ExportFormat.JPEG) })
+                SheetRow(Icons.Outlined.Print, "Imprimer", go { ctl.run(DocTool.PRINT, dd) })
+                SheetRow(Icons.Outlined.Edit, "Renommer", go { dialog = "rename" })
+                SheetRow(Icons.Outlined.DriveFileMove, "Déplacer vers un dossier", go { dialog = "move" })
+                SheetRow(Icons.Outlined.ContentCopy, "Dupliquer", go { vm.duplicate(dd) })
+                SheetRow(Icons.Outlined.Delete, "Supprimer", go { dialog = "delete" }, danger = true)
+            }
+        }
+    }
     ToolDialogs(ctl, vm, openViewer, openEdit, openPages, openText)
+}
+
+@Composable
+private fun BarAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    Column(modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun SheetGroup(title: String) {
+    Text(title.uppercase(), style = com.docuscanpro.app.ui.theme.SectionTitle, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp))
+}
+
+@Composable
+private fun SheetRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit, danger: Boolean = false) {
+    val c = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = c, modifier = Modifier.size(21.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = c, modifier = Modifier.padding(start = 16.dp))
+    }
 }
 
 private fun normText(s: String) = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase()
