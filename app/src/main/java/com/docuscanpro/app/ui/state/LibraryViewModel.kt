@@ -214,11 +214,13 @@ class LibraryViewModel(private val c: AppContainer) : ViewModel() {
 
     /** Texte du document (OCR ou texte numérique), page par page. */
     suspend fun textOf(d: DocumentEntity): List<String> {
-        val t = d.ocrText ?: run {
+        var text: String? = d.ocrText
+        if (text == null) {
             _busy.value = "Reconnaissance du texte…"
-            try { c.documents.indexText(d.id, c.ocr) } finally { _busy.value = null }
+            try { text = c.documents.indexText(d.id, c.ocr) } finally { _busy.value = null }
         }
-        return t?.split('\u000C') ?: emptyList()
+        val result: String = text ?: return emptyList()
+        return result.split("\u000C")
     }
 
     fun indexNow(d: DocumentEntity) = tool("Reconnaissance du texte…") {
