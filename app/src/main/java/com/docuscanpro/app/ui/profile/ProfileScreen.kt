@@ -159,14 +159,14 @@ fun ProfileScreen(vm: LibraryViewModel) {
 @Composable
 private fun Section(icon: ImageVector? = null, title: String? = null, content: @Composable () -> Unit) {
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.fillMaxWidth()
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
             if (title != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (icon != null) { Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.secondary); Spacer(Modifier.width(10.dp)) }
+                    if (icon != null) { Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface); Spacer(Modifier.width(10.dp)) }
                     Text(title, style = MaterialTheme.typography.titleSmall)
                 }
                 Spacer(Modifier.height(12.dp))

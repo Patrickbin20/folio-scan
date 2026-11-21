@@ -2,6 +2,7 @@ package com.docuscanpro.app.ui.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,61 +18,61 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.CallMerge
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.outlined.Collections
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.docuscanpro.app.data.db.DocumentEntity
 import com.docuscanpro.app.ui.LocalAppActions
+import com.docuscanpro.app.ui.components.DocumentMenu
+import com.docuscanpro.app.ui.components.EmptyState
+import com.docuscanpro.app.ui.components.FileImage
 import com.docuscanpro.app.ui.components.TextInputDialog
+import com.docuscanpro.app.ui.components.formatSize
+import com.docuscanpro.app.ui.components.pagesLabel
+import com.docuscanpro.app.ui.components.rememberDocActions
+import com.docuscanpro.app.ui.state.LibraryViewModel
 import com.docuscanpro.app.ui.tools.DocPickerDialog
 import com.docuscanpro.app.ui.tools.DocTool
 import com.docuscanpro.app.ui.tools.ToolDialogs
 import com.docuscanpro.app.ui.tools.rememberToolController
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.outlined.CallMerge
-import androidx.compose.material.icons.outlined.CallSplit
-import androidx.compose.material.icons.outlined.Draw
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import com.docuscanpro.app.ui.components.Avatar
-import com.docuscanpro.app.ui.components.DocumentRow
-import com.docuscanpro.app.ui.components.EmptyState
-import com.docuscanpro.app.ui.components.SectionHeader
-import com.docuscanpro.app.ui.components.rememberDocActions
-import com.docuscanpro.app.ui.state.LibraryViewModel
-import com.docuscanpro.app.ui.theme.Electric
-import com.docuscanpro.app.ui.theme.Navy
-import com.docuscanpro.app.ui.theme.NavyDeep
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -83,110 +84,149 @@ fun HomeScreen(
     openPages: (Long) -> Unit = {},
     openText: (Long) -> Unit = {}
 ) {
-    val ctl = rememberToolController()
-    var pickFor by remember { mutableStateOf<DocTool?>(null) }
-    var mergePick by remember { mutableStateOf(false) }
-    var mergeList by remember { mutableStateOf<List<com.docuscanpro.app.data.db.DocumentEntity>?>(null) }
     val actions = LocalAppActions.current
     val docActions = rememberDocActions(vm)
     val settings by vm.settings.collectAsState()
     val docs by vm.documents.collectAsState()
+    val ctl = rememberToolController()
+    var pickFor by remember { mutableStateOf<DocTool?>(null) }
+    var mergePick by remember { mutableStateOf(false) }
+    var mergeList by remember { mutableStateOf<List<DocumentEntity>?>(null) }
+    var importChoice by remember { mutableStateOf(false) }
+    var used by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(docs.size) { used = vm.storageUsed() }
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val hello = if (hour in 5..17) "Bonjour" else "Bonsoir"
+    val first = settings.userName.trim().split(" ").firstOrNull().orEmpty()
 
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        // En-tête
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Navy), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.DocumentScanner, null, tint = Color.White, modifier = Modifier.size(22.dp))
+            Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(26.dp).clip(RoundedCornerShape(7.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.DocumentScanner, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
                 }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("DocuScan Pro", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(if (settings.userName.isBlank()) hello else "$hello, ${settings.userName}", style = MaterialTheme.typography.headlineSmall)
-                }
-                Avatar(settings.userName, Modifier.clickable(onClick = onOpenProfile))
+                Spacer(Modifier.width(8.dp))
+                Text("DocuScan", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                val initials = settings.userName.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifBlank { "D" }
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable(onClick = onOpenProfile),
+                    contentAlignment = Alignment.Center
+                ) { Text(initials, style = MaterialTheme.typography.labelMedium) }
             }
         }
+        // Salutation
+        item {
+            Column {
+                Text(if (first.isBlank()) hello else "$hello, $first", style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(4.dp))
+                Text("${docs.size} document${if (docs.size > 1) "s" else ""} · ${formatSize(used)} sur l'appareil", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        // Recherche
         item {
             Surface(
-                onClick = { onOpenLibrary("all", true) }, shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+                onClick = { onOpenLibrary("all", true) }, shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
-                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(12.dp))
-                    Text("Rechercher un document", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Rechercher un nom ou un mot", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
+        // Action principale
         item {
-            Card(
-                onClick = actions.scan, shape = RoundedCornerShape(26.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent), modifier = Modifier.fillMaxWidth()
+            Surface(
+                onClick = actions.scan, shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Navy, NavyDeep))).padding(22.dp)
+                Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondary), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.DocumentScanner, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Scanner un document", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(2.dp))
+                        Text("Bords et perspective corrigés automatiquement", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        // Raccourcis
+        item {
+            Row(Modifier.fillMaxWidth()) {
+                Quick(Icons.Outlined.FileUpload, "Importer", Modifier.weight(1f)) { importChoice = true }
+                Quick(Icons.Outlined.Draw, "Signer", Modifier.weight(1f)) { pickFor = DocTool.SIGN }
+                Quick(Icons.Outlined.CallMerge, "Fusionner", Modifier.weight(1f)) { mergePick = true }
+                Quick(Icons.Outlined.TextFields, "Texte", Modifier.weight(1f)) { pickFor = DocTool.TEXT }
+            }
+        }
+        // Récents
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Récents", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                if (docs.isNotEmpty()) TextButton(onClick = { onOpenLibrary("all", false) }) { Text("Tout voir", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium) }
+            }
+        }
+        item {
+            if (docs.isEmpty()) {
+                EmptyState(Icons.Outlined.Description, "Aucun document", "Scannez votre premier document ou importez un PDF.")
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.fillMaxWidth()
                 ) {
                     Column {
-                        Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.CameraAlt, null, tint = Color.White, modifier = Modifier.size(28.dp))
-                        }
-                        Spacer(Modifier.height(18.dp))
-                        Text("Scanner un document", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Détection des bords, recadrage et correction de perspective automatiques", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.72f))
-                        Spacer(Modifier.height(16.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(8.dp).clip(CircleShape).background(Electric))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Commencer", style = MaterialTheme.typography.labelLarge, color = Color.White)
-                            Spacer(Modifier.width(6.dp))
-                            Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        docs.take(5).forEachIndexed { i, d ->
+                            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Row(
+                                Modifier.fillMaxWidth().clickable { onOpenDocument(d.id) }.padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FileImage(d.thumbPath, Modifier.size(width = 38.dp, height = 50.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp)))
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(d.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text("${pagesLabel(d.pageCount)} · PDF · ${relDate(d.modifiedAt)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                DocumentMenu(d, vm, docActions)
+                            }
                         }
                     }
                 }
             }
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ImportCard(Icons.Outlined.Image, "Importer depuis la galerie", actions.importImages, Modifier.weight(1f))
-                ImportCard(Icons.Outlined.PictureAsPdf, "Importer un PDF", actions.importPdf, Modifier.weight(1f))
-            }
-        }
-        item {
-            SectionHeader("Raccourcis", Modifier.padding(top = 6.dp))
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Shortcut(Icons.Outlined.Draw, "Signer un\ndocument", { pickFor = DocTool.SIGN }, Modifier.width(96.dp))
-                Shortcut(Icons.Outlined.CallMerge, "Fusionner\ndes PDF", { mergePick = true }, Modifier.width(96.dp))
-                Shortcut(Icons.Outlined.CallSplit, "Diviser\nun PDF", { pickFor = DocTool.PAGES }, Modifier.width(96.dp))
-                Shortcut(Icons.Outlined.Collections, "Convertir\nen PDF", actions.importImages, Modifier.width(96.dp))
-                Shortcut(Icons.Outlined.FolderOpen, "Mes\ndocuments", { onOpenLibrary("all", false) }, Modifier.width(96.dp))
-                Shortcut(Icons.Outlined.StarBorder, "Mes\nfavoris", { onOpenLibrary("favorites", false) }, Modifier.width(96.dp))
-            }
-        }
-        item {
-            SectionHeader("Documents récents", Modifier.padding(top = 6.dp)) {
-                if (docs.isNotEmpty()) TextButton(onClick = { onOpenLibrary("all", false) }) { Text("Tout voir") }
-            }
-        }
-        if (docs.isEmpty()) {
-            item {
-                EmptyState(Icons.Outlined.DocumentScanner, "Aucun document", "Scannez votre premier document ou importez un PDF pour le retrouver ici.")
-            }
-        } else {
-            items(docs.take(6), key = { it.id }) { d ->
-                DocumentRow(d, vm, docActions, onOpen = { onOpenDocument(d.id) })
-            }
-        }
     }
 
+    if (importChoice) {
+        AlertDialog(
+            onDismissRequest = { importChoice = false },
+            title = { Text("Importer") },
+            text = {
+                Column {
+                    ListItem(headlineContent = { Text("Images depuis la galerie") }, supportingContent = { Text("Converties en un seul PDF") },
+                        leadingContent = { Icon(Icons.Outlined.Image, null) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { importChoice = false; actions.importImages() })
+                    ListItem(headlineContent = { Text("Un fichier PDF") }, supportingContent = { Text("Même protégé par mot de passe") },
+                        leadingContent = { Icon(Icons.Outlined.PictureAsPdf, null) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { importChoice = false; actions.importPdf() })
+                }
+            },
+            confirmButton = { TextButton(onClick = { importChoice = false }) { Text("Annuler") } }
+        )
+    }
     pickFor?.let { tool ->
         DocPickerDialog("Choisir un document", vm, multi = false, confirmLabel = "", onDismiss = { pickFor = null }) { list ->
             pickFor = null; list.firstOrNull()?.let { ctl.run(tool, it) }
@@ -201,30 +241,30 @@ fun HomeScreen(
     ToolDialogs(ctl, vm, onOpenDocument, openEdit, openPages, openText)
 }
 
-@Composable
-private fun ImportCard(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier) {
-    OutlinedCard(
-        onClick = onClick, modifier = modifier, shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(label, style = MaterialTheme.typography.titleSmall)
-        }
+private fun relDate(ms: Long): String {
+    val now = Calendar.getInstance()
+    val then = Calendar.getInstance().apply { timeInMillis = ms }
+    val sameYear = now.get(Calendar.YEAR) == then.get(Calendar.YEAR)
+    val dayDiff = now.get(Calendar.DAY_OF_YEAR) - then.get(Calendar.DAY_OF_YEAR)
+    return when {
+        sameYear && dayDiff == 0 -> "aujourd'hui"
+        sameYear && dayDiff == 1 -> "hier"
+        else -> SimpleDateFormat(if (sameYear) "d MMM" else "d MMM yyyy", Locale.FRANCE).format(Date(ms))
     }
 }
 
 @Composable
-private fun Shortcut(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier) {
-    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.padding(vertical = 14.dp, horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        }
+private fun Quick(icon: ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier.size(50.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(21.dp)) }
+        Spacer(Modifier.height(8.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }

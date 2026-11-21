@@ -2,6 +2,7 @@ package com.docuscanpro.app.ui.documents
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -129,11 +130,11 @@ fun DocumentsScreen(vm: LibraryViewModel, initialFilter: String, focusSearch: Bo
             placeholder = { Text("Rechercher par nom ou contenu") },
             leadingIcon = { Icon(Icons.Outlined.Search, null) },
             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, "Effacer") } },
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
             ),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).focusRequester(focus)
         )
@@ -195,15 +196,16 @@ fun DocumentsScreen(vm: LibraryViewModel, initialFilter: String, focusSearch: Bo
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Chip(label: String, selected: Boolean, icon: ImageVector? = null, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
+    val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLowest
     val fg = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     Row(
         Modifier.clip(RoundedCornerShape(50)).background(bg)
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(16.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
-        Text(label, style = MaterialTheme.typography.labelLarge, color = fg)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = fg)
     }
 }

@@ -26,11 +26,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Handyman
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.HorizontalDivider
@@ -273,44 +273,44 @@ private fun NavHostController.navigateTab(route: String) {
     }
 }
 
+/** Barre inférieure : 4 onglets + bouton Scanner flottant au centre. */
 @Composable
 private fun BottomBar(nav: NavHostController, route: String?, onScan: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest, tonalElevation = 0.dp) {
-        Column {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Row(
-                Modifier.fillMaxWidth().navigationBarsPadding().height(72.dp).padding(horizontal = 6.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                TabItem(Icons.Outlined.Home, Icons.Filled.Home, "Accueil", route == Routes.HOME, Modifier.weight(1f)) { nav.navigateTab(Routes.HOME) }
-                TabItem(Icons.Outlined.Folder, Icons.Filled.Folder, "Documents", route == Routes.DOCS, Modifier.weight(1f)) { nav.navigateTab(Routes.docs()) }
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier.size(58.dp).shadow(10.dp, RoundedCornerShape(20.dp), ambientColor = Electric, spotColor = Electric)
-                            .clip(RoundedCornerShape(20.dp)).background(Navy).clickable(onClick = onScan),
-                        contentAlignment = Alignment.Center
-                    ) { Icon(Icons.Outlined.DocumentScanner, "Scanner", tint = Color.White, modifier = Modifier.size(28.dp)) }
+    Box(Modifier.fillMaxWidth()) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest, modifier = Modifier.fillMaxWidth().padding(top = 26.dp)) {
+            Column {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Row(
+                    Modifier.fillMaxWidth().navigationBarsPadding().height(64.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TabItem(Icons.Outlined.Home, Icons.Filled.Home, "Accueil", route == Routes.HOME, Modifier.weight(1f)) { nav.navigateTab(Routes.HOME) }
+                    TabItem(Icons.Outlined.Folder, Icons.Filled.Folder, "Documents", route == Routes.DOCS, Modifier.weight(1f)) { nav.navigateTab(Routes.docs()) }
+                    Spacer(Modifier.weight(1f))
+                    TabItem(Icons.Outlined.GridView, Icons.Filled.GridView, "Outils", route == Routes.TOOLS, Modifier.weight(1f)) { nav.navigateTab(Routes.TOOLS) }
+                    TabItem(Icons.Outlined.Person, Icons.Filled.Person, "Profil", route == Routes.PROFILE, Modifier.weight(1f)) { nav.navigateTab(Routes.PROFILE) }
                 }
-                TabItem(Icons.Outlined.Handyman, Icons.Filled.Handyman, "Outils", route == Routes.TOOLS, Modifier.weight(1f)) { nav.navigateTab(Routes.TOOLS) }
-                TabItem(Icons.Outlined.Person, Icons.Filled.Person, "Profil", route == Routes.PROFILE, Modifier.weight(1f)) { nav.navigateTab(Routes.PROFILE) }
             }
         }
+        Box(
+            Modifier.align(Alignment.TopCenter).size(56.dp)
+                .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color.Black, spotColor = Color.Black)
+                .clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primary).clickable(onClick = onScan),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Outlined.DocumentScanner, "Scanner", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(26.dp)) }
     }
 }
 
 @Composable
 private fun TabItem(icon: ImageVector, selectedIcon: ImageVector, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
     Column(
         modifier.clip(RoundedCornerShape(14.dp))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            Modifier.clip(RoundedCornerShape(50)).background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-        ) { Icon(if (selected) selectedIcon else icon, label, tint = color) }
+        Icon(if (selected) selectedIcon else icon, label, tint = color, modifier = Modifier.size(23.dp))
         Spacer(Modifier.height(4.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1)
     }

@@ -127,9 +127,9 @@ fun DocumentMenu(doc: DocumentEntity, vm: LibraryViewModel, actions: DocActions)
 @Composable
 fun DocumentRow(doc: DocumentEntity, vm: LibraryViewModel, actions: DocActions, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onOpen, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+        onClick = onOpen, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             FileImage(doc.thumbPath, Modifier.size(width = 52.dp, height = 68.dp).clip(RoundedCornerShape(10.dp)))
@@ -156,9 +156,9 @@ fun DocumentRow(doc: DocumentEntity, vm: LibraryViewModel, actions: DocActions, 
 @Composable
 fun DocumentGridCard(doc: DocumentEntity, vm: LibraryViewModel, actions: DocActions, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onOpen, modifier = modifier, shape = RoundedCornerShape(18.dp),
+        onClick = onOpen, modifier = modifier, shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Box {
             FileImage(doc.thumbPath, Modifier.fillMaxWidth().aspectRatio(0.78f))

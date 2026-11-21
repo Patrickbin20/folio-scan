@@ -22,7 +22,7 @@ data class AppSettings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val highQuality: Boolean = true,
     val exportFormat: ExportFormat = ExportFormat.PDF,
-    val gridView: Boolean = false,
+    val gridView: Boolean = true,
     val sort: SortOrder = SortOrder.DATE,
     val autoOcr: Boolean = true
 )
@@ -50,7 +50,7 @@ class SettingsRepository(private val context: Context) {
                 theme = p.enumOf(Keys.theme, ThemeMode.SYSTEM),
                 highQuality = p[Keys.quality] ?: true,
                 exportFormat = p.enumOf(Keys.export, ExportFormat.PDF),
-                gridView = p[Keys.grid] ?: false,
+                gridView = p[Keys.grid] ?: true,
                 sort = p.enumOf(Keys.sort, SortOrder.DATE),
                 autoOcr = p[Keys.ocr] ?: true
             )

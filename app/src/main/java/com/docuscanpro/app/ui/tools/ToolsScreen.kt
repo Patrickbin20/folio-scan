@@ -2,6 +2,11 @@ package com.docuscanpro.app.ui.tools
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -108,22 +113,33 @@ fun ToolsScreen(
         )
     )
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(160.dp),
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
+    LazyColumn(
+        Modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = PaddingValues(20.dp, 12.dp, 20.dp, 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { Text("Outils", style = MaterialTheme.typography.headlineMedium) }
+        item { Text("Outils", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.height(44.dp).padding(top = 4.dp)) }
         sections.forEach { (title, tools) ->
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(title.uppercase(), style = com.docuscanpro.app.ui.theme.SectionTitle, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column {
+                            tools.forEachIndexed { i, t ->
+                                if (i > 0) androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                ToolRow(t)
+                            }
+                        }
+                    }
+                }
             }
-            items(tools) { t -> ToolTile(t) }
         }
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item {
             Text("La reconnaissance de texte fonctionne hors-ligne pour l'alphabet latin (français, anglais, espagnol…). L'arabe n'est pas encore pris en charge.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 
@@ -146,19 +162,17 @@ fun ToolsScreen(
 }
 
 @Composable
-private fun ToolTile(t: ToolItem) {
-    Card(
-        onClick = t.onClick, shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.fillMaxWidth()
+private fun ToolRow(t: ToolItem) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = t.onClick).padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.padding(14.dp)) {
-            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
-                Icon(t.icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(t.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(t.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
+        Icon(t.icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(21.dp))
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(t.title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium))
+            Text(t.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        Icon(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }
