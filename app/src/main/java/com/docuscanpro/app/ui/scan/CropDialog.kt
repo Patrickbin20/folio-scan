@@ -78,9 +78,10 @@ fun CropDialog(scanVm: ScanViewModel, page: ScanPage, onDismiss: () -> Unit, onA
         }
     }
 
+    val bars = com.docuscanpro.app.ui.components.rememberSystemBarsPadding()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Column(Modifier.fillMaxSize().background(Color(0xFF0B0D12))) {
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.fillMaxSize().background(Color(0xFF0B0D12)).padding(bars)) {
+            Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Annuler", tint = Color.White) }
                 Text("Recadrer", color = Color.White, modifier = Modifier.weight(1f))
                 TextButton(onClick = {
@@ -98,7 +99,7 @@ fun CropDialog(scanVm: ScanViewModel, page: ScanPage, onDismiss: () -> Unit, onA
                 if (s == null || quad.size != 8) CircularProgressIndicator(color = Accent)
                 else CropArea(s.first.asImageBitmap(), quad)
             }
-            Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = {
                     val d = source?.second
                     quad.clear(); quad.addAll((d ?: DocDetector.FULL).toList()); detectedNone = d == null

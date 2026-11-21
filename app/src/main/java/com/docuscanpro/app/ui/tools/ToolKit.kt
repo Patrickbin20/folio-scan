@@ -209,10 +209,11 @@ fun PasswordDialog(title: String, message: String, confirm: Boolean, onDismiss: 
 fun DocPickerDialog(title: String, vm: LibraryViewModel, multi: Boolean, confirmLabel: String, onDismiss: () -> Unit, onConfirm: (List<DocumentEntity>) -> Unit) {
     val docs by vm.documents.collectAsState()
     val selected = remember { mutableStateListOf<Long>() }
+    val bars = com.docuscanpro.app.ui.components.rememberSystemBarsPadding()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            // Marges des barres système : le bouton de validation reste au-dessus de la barre de navigation
-            Column(Modifier.fillMaxSize().systemBarsPadding().padding(top = 8.dp)) {
+            // Marges lues dans l'activité : le bouton de validation reste au-dessus de la barre de navigation
+            Column(Modifier.fillMaxSize().padding(bars).padding(top = 8.dp)) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Fermer") }
                     Column(Modifier.weight(1f)) {

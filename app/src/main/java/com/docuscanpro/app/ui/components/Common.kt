@@ -171,6 +171,18 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, trailing: (@Comp
     }
 }
 
+/**
+ * Marges des barres système lues dans la fenêtre de l'activité, à appeler AVANT d'ouvrir un Dialog
+ * plein écran : à l'intérieur d'un Dialog, les marges système ne sont pas toujours transmises.
+ */
+@Composable
+fun rememberSystemBarsPadding(): androidx.compose.foundation.layout.PaddingValues {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val top = androidx.compose.foundation.layout.WindowInsets.statusBars.getTop(density)
+    val bottom = androidx.compose.foundation.layout.WindowInsets.navigationBars.getBottom(density)
+    return with(density) { androidx.compose.foundation.layout.PaddingValues(top = top.toDp(), bottom = bottom.toDp().coerceAtLeast(24.dp) + 8.dp) }
+}
+
 fun formatDate(ms: Long): String = SimpleDateFormat("d MMM yyyy · HH:mm", Locale.FRANCE).format(Date(ms))
 fun formatSize(bytes: Long): String = when {
     bytes >= 1_048_576 -> String.format(Locale.FRANCE, "%.1f Mo", bytes / 1_048_576.0)
