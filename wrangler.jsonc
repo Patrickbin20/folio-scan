@@ -1,9 +1,0 @@
-{
-  // Hébergement statique gratuit sur Cloudflare Workers (même méthode que Flash Scanner)
-  "name": "folio-scan",
-  "compatibility_date": "2026-11-01",
-  "assets": {
-    "directory": "./public",
-    "not_found_handling": "single-page-application"
-  }
-}

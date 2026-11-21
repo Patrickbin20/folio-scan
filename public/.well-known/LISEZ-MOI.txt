@@ -1,1 +1,0 @@
-Déposez ici le fichier assetlinks.json fourni par PWABuilder (étape 4 du README).

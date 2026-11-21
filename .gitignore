@@ -1,7 +1,8 @@
-android/.gradle/
-android/build/
-android/app/build/
-android/app/src/main/assets/
-android/local.properties
+.gradle/
+build/
+app/build/
+local.properties
 *.iml
 .idea/
+*.jks
+build.log
