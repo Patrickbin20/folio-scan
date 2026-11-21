@@ -943,13 +943,18 @@ async function buildPDF(srcs) {
   }
   return miniPDF(srcs.map((s, i) => ({bytes:b64bytes(s), w:imgs[i].width, h:imgs[i].height})));
 }
+/** Dans l'APK Android : le PDF passe par le pont natif (enregistrement dans Téléchargements / partage) */
+const ANDROID = () => window.FolioAndroid;
+function blobToB64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
 function download(blob, name) {
+  if (ANDROID()) { blobToB64(blob).then(b => ANDROID().saveFile(b, name, blob.type || 'application/pdf')); return; }
   const url = URL.createObjectURL(blob), a = document.createElement('a');
   a.href = url; a.download = name; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 /** Partage natif avec repli vers le téléchargement */
 async function shareBlob(blob, name, title) {
+  if (ANDROID()) { ANDROID().shareFile(await blobToB64(blob), name, blob.type || 'application/pdf'); return; }
   try {
     const file = new File([blob], name, {type: blob.type});
     if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({files:[file], title, text:title}); return; }
@@ -962,7 +967,7 @@ async function exportPDF(d, {share=false, pages=null, name=null} = {}) {
   try {
     const blob = await buildPDF(pages || d.pages), fn = name || d.name;
     if (share) await shareBlob(blob, fn, fn);
-    else { download(blob, fn); toast(`PDF téléchargé (${(blob.size/1024).toFixed(0)} Ko)`, 'ok'); }
+    else { download(blob, fn); if (!ANDROID()) toast(`PDF téléchargé (${(blob.size/1024).toFixed(0)} Ko)`, 'ok'); }
   } catch(e) { console.error(e); toast('Échec de la génération du PDF', 'err'); }
 }
 
@@ -1580,7 +1585,7 @@ function init() {
 }
 document.addEventListener('DOMContentLoaded', init);
 // Service worker : mise en cache de l'app pour un fonctionnement hors-ligne (ignoré en file://)
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.FolioAndroid) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 window.addEventListener('load', icons);

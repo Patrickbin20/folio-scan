@@ -52,3 +52,17 @@ l'empreinte SHA-256 affichée dans Play Console → Intégrité de l'app.
 ## Mises à jour
 Modifier les fichiers dans public/, puis dans sw.js passer `VERSION = 'folio-v1'` à `'folio-v2'`, etc.
 Pas besoin de nouvel APK pour mettre à jour le contenu : l'app charge la nouvelle version du site.
+
+---
+
+## APK Android compilé automatiquement (GitHub Actions)
+À chaque modification de `public/` ou `android/`, GitHub compile un APK signé et le publie.
+**Lien de téléchargement direct (toujours la dernière version) :**
+https://github.com/Patrickbin20/folio-scan/releases/latest/download/Folio.apk
+
+- Identifiant : `com.foliodocs.scan`.
+- Signature : secrets du dépôt `FOLIO_KEYSTORE_B64` et `FOLIO_KEYSTORE_PASSWORD`
+  (Settings → Secrets and variables → Actions). Avec eux, chaque nouvelle version s'installe
+  par-dessus l'ancienne sans perdre les documents. La clé n'est jamais stockée dans le dépôt.
+- L'app web est embarquée dans l'APK : fonctionne sans Internet ni hébergement.
+- Relancer une compilation à la main : onglet Actions → Build APK → Run workflow.
